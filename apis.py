@@ -147,7 +147,7 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
                 image_path = await save_uploaded_file(file, output_dir)
                 output_path = os.path.join(output_dir, f"ocr_result_{i}.txt")
                 
-                ocr_manager.process(image_path, output_path)
+                ocr_manager.process_from_path(image_path, output_path)
                 
                 extracted_text = ""
                 if os.path.exists(output_path):
