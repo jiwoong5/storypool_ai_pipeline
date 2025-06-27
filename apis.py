@@ -98,17 +98,13 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
     output_dir = create_output_directory()
     
     try:
-        # Save uploaded file
         image_path = await save_uploaded_file(file, output_dir)
-        
-        # Process OCR
         ocr_model = OCRSelector.get_reader(reader_type)
         ocr_manager = OCRManager(ocr_model)
         
         output_path = os.path.join(output_dir, "ocr_result.txt")
         result = ocr_manager.process(image_path, output_path)
         
-        # Read extracted text
         extracted_text = ""
         if os.path.exists(output_path):
             with open(output_path, 'r', encoding='utf-8') as f:
@@ -122,12 +118,16 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
             processing_time=processing_time,
             output_directory=output_dir,
             extracted_text=extracted_text,
-            confidence_score=0.95,  # Default value, should be from actual OCR result
-            detected_languages=["en"]  # Default value, should be from actual OCR result
+            confidence_score=0.95,
+            detected_languages=["en"]
         )
         
     except Exception as e:
-        return create_error_response(str(e), "OCR_ERROR")
+        error_response = create_error_response(str(e), "OCR_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content=error_response.dict()
+        )
 
 @app.post("/ocr/batch", response_model=OCRBatchResponse)
 async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: str = "easyocr"):
