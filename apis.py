@@ -257,9 +257,6 @@ async def translate_text(request: TranslatorTextRequest):
         
         processing_time = time.time() - start_time
         
-        # Parse source and target languages
-        source_lang, target_lang = request.translator_type.value.split('-')
-        
         return TranslatorResponse(
             status=StatusCode.SUCCESS,
             message="Text translation completed successfully",
@@ -267,8 +264,6 @@ async def translate_text(request: TranslatorTextRequest):
             output_directory=output_dir,
             original_text=request.text,
             translated_text=translated_text,
-            source_language=source_lang,
-            target_language=target_lang,
             confidence_score=0.90
         )
         
