@@ -191,7 +191,7 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
 
 # Translator Endpoints
 @app.post("/translator/process", response_model=TranslatorResponse)
-async def process_translator_file(file: UploadFile = File(...), translator_type: str = "ko-en"):
+async def process_translator_file(file: UploadFile = File(...), translator_type: str = "marin"):
     start_time = time.time()
     output_dir = create_output_directory()
     
