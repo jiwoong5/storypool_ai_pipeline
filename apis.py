@@ -232,7 +232,11 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         )
         
     except Exception as e:
-        return create_error_response(str(e), "TRANSLATOR_ERROR")
+        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
+        return JSONResponse(
+            status_code=500,
+            message=error_response.dict()
+        )
 
 @app.post("/translator/text", response_model=TranslatorResponse)
 async def translate_text(request: TranslatorTextRequest):
