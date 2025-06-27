@@ -25,3 +25,15 @@ class OCRManager:
 
         print("[INFO] OCR 처리 완료")
         return text_list
+
+    def process_from_path(self, input_path: str, output_path: Optional[str] = None) -> Optional[List[str]]:
+        print(f"[INFO] 파일에서 이미지 읽기: {input_path}")
+        try:
+            with open(input_path, 'rb') as f:
+                image_data = f.read()
+        except Exception as e:
+            print(f"[ERROR] 파일 읽기 실패: {e}")
+            return None
+
+        # 기존 process 호출
+        return self.process(image_data, output_path)
