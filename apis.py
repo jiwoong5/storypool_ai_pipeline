@@ -126,7 +126,7 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
         error_response = create_error_response(str(e), "OCR_ERROR")
         return JSONResponse(
             status_code=500,
-            message=error_response.dict()
+            content=error_response.dict()
         )
 
 @app.post("/ocr/batch", response_model=OCRBatchResponse)
@@ -186,7 +186,7 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
         error_response = create_error_response(str(e), "OCR_ERROR")
         return JSONResponse(
             status_code=500,
-            message=error_response.dict()
+            content=error_response.dict()
         )
 
 # Translator Endpoints
@@ -216,9 +216,6 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         
         processing_time = time.time() - start_time
         
-        # Parse source and target languages from translator_type
-        source_lang, target_lang = translator_type.split('-')
-        
         return TranslatorResponse(
             status=StatusCode.SUCCESS,
             message="Translation completed successfully",
@@ -226,8 +223,6 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
             output_directory=output_dir,
             original_text=original_text,
             translated_text=translated_text,
-            source_language=source_lang,
-            target_language=target_lang,
             confidence_score=0.90
         )
         
@@ -235,7 +230,7 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
         return JSONResponse(
             status_code=500,
-            message=error_response.dict()
+            content=error_response.dict()
         )
 
 @app.post("/translator/text", response_model=TranslatorResponse)
