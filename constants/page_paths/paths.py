@@ -1,0 +1,7 @@
+OCR_ROUTE = "/ocr"
+KO_EN_TRANSLATOR_ROUTE = "/ko_en_translator"
+STORY_WRITER_ROUTE = "/story_writer"
+SCENE_PARSER_ROUTE = "/scene_parser"
+PROMPT_MAKER_ROUTE = "/prompt_maker"
+EMOTION_CLASSIFIER_ROUTE = "/emotion_classifier"
+IMAGE_MAKER_ROUTE = "/image_maker"
