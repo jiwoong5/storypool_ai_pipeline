@@ -126,7 +126,7 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
         error_response = create_error_response(str(e), "OCR_ERROR")
         return JSONResponse(
             status_code=500,
-            content=error_response.dict()
+            message=error_response.dict()
         )
 
 @app.post("/ocr/batch", response_model=OCRBatchResponse)
