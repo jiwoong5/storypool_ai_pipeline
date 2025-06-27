@@ -12,24 +12,20 @@ class TranslatorType(str, Enum):
 
 class StoryWriterType(str, Enum):
     LLAMA = "llama"
-    GPT = "gpt"
-    CLAUDE = "claude"
+
+class EmotionClassiferType(str, Enum):
+    MINILM = "minilm"
 
 class SceneParserType(str, Enum):
     BASIC = "basic"
-    ADVANCED = "advanced"
-    CUSTOM = "custom"
 
 class PromptMakerType(str, Enum):
     LLAMA = "llama"
-    GPT = "gpt"
-    CLAUDE = "claude"
 
 class ImageMakerType(str, Enum):
+    GHIBLI_DIFFUSION = "ghibli_diffusion"
     DREAM_SHAPER = "dream_shaper"
-    STABLE_DIFFUSION = "stable_diffusion"
-    DALL_E = "dall_e"
-
+    
 # OCR 요청
 class OCRRequest(BaseModel):
     image_path: str = Field(..., description="처리할 이미지 파일 경로")
@@ -41,15 +37,14 @@ class OCRBatchRequest(BaseModel):
 
 # Translator 요청
 class TranslatorRequest(BaseModel):
-    input_file_path: str = Field(..., description="번역할 텍스트 파일 경로")
+    input_file_path: str = Field(..., description="번역할 이미지 파일 경로")
     output_file_path: str = Field(..., description="번역 결과를 저장할 파일 경로")
-    language_pair: str = Field(..., description="언어 쌍 (예: 'en-ko', 'ko-en')")
-    translator_type: TranslatorType = Field(default=TranslatorType.GOOGLE, description="사용할 번역기 타입")
+    translator_type: TranslatorType = Field(default=TranslatorType.NLLB, description="사용할 번역기 타입")
 
 class TranslatorTextRequest(BaseModel):
     text: str = Field(..., description="번역할 텍스트")
-    language_pair: str = Field(..., description="언어 쌍 (예: 'en-ko', 'ko-en')")
-    translator_type: TranslatorType = Field(default=TranslatorType.GOOGLE, description="사용할 번역기 타입")
+    translator_type: TranslatorType = Field(default=TranslatorType.NLLB, description="사용할 번역기 타입")
+
 
 # Story Writer 요청
 class StoryWriterRequest(BaseModel):
@@ -85,13 +80,16 @@ class PromptMakerTextRequest(BaseModel):
 class EmotionClassifierRequest(BaseModel):
     input_file_path: str = Field(..., description="감정 분류할 텍스트 파일 경로")
     output_file_path: str = Field(..., description="감정 분류 결과를 저장할 파일 경로")
+    emotion_classifer_type: EmotionClassiferType = Field(default=EmotionClassiferType.MINILM, description="감정 분석기 타입")
 
 class EmotionClassifierTextRequest(BaseModel):
     text: str = Field(..., description="감정 분류할 텍스트")
+    emotion_classifer_type: EmotionClassiferType = Field(default=EmotionClassiferType.MINILM, description="감정 분석기 타입")
 
 class EmotionClassifierBatchRequest(BaseModel):
     input_file_paths: List[str] = Field(..., description="감정 분류할 텍스트 파일 경로 리스트")
     output_dir: str = Field(..., description="감정 분류 결과를 저장할 디렉토리")
+    emotion_classifer_type: EmotionClassiferType = Field(default=EmotionClassiferType.MINILM, description="감정 분석기 타입")
 
 # Image Maker 요청
 class ImageMakerRequest(BaseModel):
