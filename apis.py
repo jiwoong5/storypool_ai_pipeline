@@ -183,7 +183,11 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
         )
         
     except Exception as e:
-        return create_error_response(str(e), "OCR_BATCH_ERROR")
+        error_response = create_error_response(str(e), "OCR_ERROR")
+        return JSONResponse(
+            status_code=500,
+            message=error_response.dict()
+        )
 
 # Translator Endpoints
 @app.post("/translator/process", response_model=TranslatorResponse)
