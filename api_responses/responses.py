@@ -10,12 +10,13 @@ class StatusCode(str, Enum):
     PROCESSING = "processing"
     PARTIAL_SUCCESS = "partial_success"
 
-# 기본 응답 모델
+# 기본 응답 모델 (output_directory 추가)
 class BaseResponse(BaseModel):
     status: StatusCode = Field(..., description="처리 상태")
     message: str = Field(..., description="응답 메시지")
     timestamp: datetime = Field(default_factory=datetime.now, description="응답 시간")
     processing_time: Optional[float] = Field(None, description="처리 시간 (초)")
+    output_directory: Optional[str] = Field(None, description="결과 출력 디렉토리 경로")
 
 # OCR 응답
 class OCRResponse(BaseResponse):
@@ -37,15 +38,11 @@ class TranslatorResponse(BaseResponse):
     source_language: Optional[str] = Field(None, description="원본 언어")
     target_language: Optional[str] = Field(None, description="대상 언어")
     confidence_score: Optional[float] = Field(None, description="번역 신뢰도")
-    output_file_path: Optional[str] = Field(None, description="결과 파일 경로")
 
 # Story Writer 응답
 class StoryWriterResponse(BaseResponse):
     generated_story: Optional[str] = Field(None, description="생성된 스토리")
-    word_count: Optional[int] = Field(None, description="단어 수")
-    character_count: Optional[int] = Field(None, description="문자 수")
     genre: Optional[str] = Field(None, description="감지된 장르")
-    output_file_path: Optional[str] = Field(None, description="결과 파일 경로")
     writing_style: Optional[str] = Field(None, description="작성 스타일")
 
 # Scene Parser 응답
@@ -64,7 +61,6 @@ class SceneParserResponse(BaseResponse):
     total_scenes: int = Field(0, description="총 장면 수")
     main_characters: List[str] = Field(default_factory=list, description="주요 등장 인물")
     locations: List[str] = Field(default_factory=list, description="등장 장소")
-    output_file_path: Optional[str] = Field(None, description="결과 파일 경로")
 
 # Prompt Maker 응답
 class PromptMakerResponse(BaseResponse):
@@ -72,7 +68,6 @@ class PromptMakerResponse(BaseResponse):
     prompt_type: Optional[str] = Field(None, description="프롬프트 유형")
     keywords: List[str] = Field(default_factory=list, description="추출된 키워드")
     estimated_length: Optional[int] = Field(None, description="예상 응답 길이")
-    output_file_path: Optional[str] = Field(None, description="결과 파일 경로")
     prompt_quality_score: Optional[float] = Field(None, description="프롬프트 품질 점수")
 
 # Emotion Classifier 응답
@@ -86,13 +81,11 @@ class EmotionClassifierResponse(BaseResponse):
     emotion_scores: List[EmotionScore] = Field(default_factory=list, description="모든 감정 점수")
     sentiment_polarity: Optional[str] = Field(None, description="감정 극성 (positive/negative/neutral)")
     intensity: Optional[float] = Field(None, description="감정 강도 (0-1)")
-    output_file_path: Optional[str] = Field(None, description="결과 파일 경로")
 
 class EmotionClassifierBatchResponse(BaseResponse):
     results: Dict[str, Dict[str, Any]] = Field(default_factory=dict, description="배치 처리 결과")
     summary: Dict[str, Any] = Field(default_factory=dict, description="전체 감정 분석 요약")
     total_processed: int = Field(0, description="처리된 총 파일 수")
-    output_dir: Optional[str] = Field(None, description="결과 디렉토리")
 
 # Image Maker 응답
 class GeneratedImage(BaseModel):
@@ -107,7 +100,6 @@ class ImageMakerResponse(BaseResponse):
     generated_images: List[GeneratedImage] = Field(default_factory=list, description="생성된 이미지 정보")
     prompt_used: Optional[str] = Field(None, description="사용된 프롬프트")
     total_images: int = Field(0, description="생성된 총 이미지 수")
-    output_directory: Optional[str] = Field(None, description="출력 디렉토리")
     model_used: Optional[str] = Field(None, description="사용된 모델")
     generation_parameters: Optional[Dict[str, Any]] = Field(None, description="생성 파라미터")
 
