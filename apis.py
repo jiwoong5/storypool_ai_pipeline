@@ -103,7 +103,7 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
         ocr_manager = OCRManager(ocr_model)
         
         output_path = os.path.join(output_dir, "ocr_result.txt")
-        result = ocr_manager.process(image_path, output_path)
+        result = ocr_manager.process_from_path(image_path, output_path)
         
         extracted_text = ""
         if os.path.exists(output_path):
