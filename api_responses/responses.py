@@ -103,6 +103,11 @@ class ImageMakerResponse(BaseResponse):
     model_used: Optional[str] = Field(None, description="사용된 모델")
     generation_parameters: Optional[Dict[str, Any]] = Field(None, description="생성 파라미터")
 
+# 파이프 라인 응답
+class PipelineResponse(BaseResponse):
+    total_processing_time: float = Field(..., description="파이프라인 전체 처리 시간 (초)")
+    mode: str = Field(..., description="파이프라인 실행 모드 (예: batch, single)")
+
 # 에러 응답
 class ErrorDetail(BaseModel):
     error_code: str = Field(..., description="에러 코드")
