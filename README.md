@@ -38,7 +38,7 @@ OCR (손글씨 → 텍스트)
 ## 🚀 빠른 시작
 
 ### 요구사항
-- Python 3.8+ ~ Python 3.12-
+- Python 3.12+
 - requirements.txt 참고
 - diffusers==0.34.0: 딥러닝 기반 이미지 생성 및 변환 모델(예: Stable Diffusion)을 쉽게 사용할 수 있도록 돕는 라이브러리
 - easyocr==1.7.2: 다양한 언어를 지원하는 간편한 OCR(문자 인식) 라이브러리
