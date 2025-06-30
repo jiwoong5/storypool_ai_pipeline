@@ -11,3 +11,4 @@ sentence_transformers==4.1.0
 torch==2.7.1
 transformers==4.53.0
 uvicorn==0.35.0
+python-multipart==0.0.6
