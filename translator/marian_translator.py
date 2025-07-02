@@ -1,16 +1,19 @@
 from translator.translator_interface import TranslatorInterface
 from transformers import MarianMTModel, MarianTokenizer
-import kss
+import re
 
 class MarianTranslator(TranslatorInterface):
     def __init__(self, model_name='Helsinki-NLP/opus-mt-ko-en'):
         self.model_name = model_name
         self.tokenizer = MarianTokenizer.from_pretrained(model_name)
         self.model = MarianMTModel.from_pretrained(model_name)
+    
+    def split_sentences(text):
+        return re.split(r'(?<=[.!?])\s+', text)
 
     def translate_text(self, text: str) -> str:
         # KSS로 문장 분리
-        sentences = kss.split_sentences(text)
+        sentences = self.split_sentences(text)
 
         # 번역 수행
         translated_sentences = []

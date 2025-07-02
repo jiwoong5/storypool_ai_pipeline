@@ -1,5 +1,6 @@
 from translator.translator_interface import TranslatorInterface
 from transformers import pipeline
+
 class NLLBTranslator(TranslatorInterface):
     def __init__(self, model_name='NHNDQ/nllb-finetuned-en2ko', device=0, src_lang='eng_Latn', tgt_lang='kor_Hang'):
         self.translator = pipeline(
