@@ -1,7 +1,6 @@
 from translator.translator_interface import TranslatorInterface
 from transformers import MarianMTModel, MarianTokenizer
 import kss
-from kss import split_sentences
 
 class MarianTranslator(TranslatorInterface):
     def __init__(self, model_name='Helsinki-NLP/opus-mt-ko-en'):
