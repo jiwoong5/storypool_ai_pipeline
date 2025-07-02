@@ -63,6 +63,7 @@ pip install -r requirements.txt
 llama 모델 - 3.2b - 3B  
 - [llama download](https://www.llama.com/llama-downloads/)
 - [ollama_download](https://ollama.com/download)
+- ollama pull llama3.2:3b
 
 ### 실행
 ```bash
