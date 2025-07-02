@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 import os
 import time
 from datetime import datetime
@@ -230,7 +231,7 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
         return JSONResponse(
             status_code=500,
-            content=error_response.dict()
+            content = jsonable_encoder(error_response.model_dump())
         )
 
 @app.post("/translator/text", response_model=TranslatorResponse)

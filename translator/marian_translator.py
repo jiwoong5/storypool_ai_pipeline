@@ -8,7 +8,7 @@ class MarianTranslator(TranslatorInterface):
         self.tokenizer = MarianTokenizer.from_pretrained(model_name)
         self.model = MarianMTModel.from_pretrained(model_name)
     
-    def split_sentences(text):
+    def split_sentences(self, text):
         return re.split(r'(?<=[.!?])\s+', text)
 
     def translate_text(self, text: str) -> str:
