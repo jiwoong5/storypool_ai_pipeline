@@ -8,7 +8,7 @@ class TranslatorSelector:
         """언어 쌍에 따라 적합한 번역기 객체를 반환"""
         if translator == 'nllb':
             return NLLBTranslator()
-        elif translator == 'marin':
+        elif translator == 'marian':
             return MarianTranslator()
         else:
             raise ValueError(f"지원되지 않는 번역기입니다: {translator}")
