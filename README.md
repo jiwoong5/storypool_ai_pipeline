@@ -56,11 +56,14 @@ OCR (손글씨 → 텍스트)
 
 
 ### 설치
+프로젝트
 ```bash
 git clone https://github.com/jiwoong5/storypool_ai_pipeline.git
 cd storypool_ai_pipeline
 pip install -r requirements.txt
 ```
+llama 모델 - 3.2b - 3B
+[링크 텍스트](https://www.llama.com/llama-downloads/)
 
 ### 실행
 ```bash
