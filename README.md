@@ -12,8 +12,9 @@ StoryPool AI Pipeline은 사용자가 작성한 일기 텍스트를 분석하여
 - 🎭 **감정 분석**: 일기 내용의 감정 상태 분석
 - 📖 **스토리 생성**: AI 기반 일기내용을 이용한 동화 스토리 생성
 - 🎬 **장면 분석**: 스토리의 장면별 구조 분석
+- 💡 **이미지 프롬프트 생성**: 각 모듈의 AI 프롬프트 자동 생성
 - 🎨 **이미지 생성**: 스토리에 맞는 일러스트 자동 생성
-- 💡 **프롬프트 최적화**: 각 모듈의 AI 프롬프트 자동 생성
+
 
 ## 🏗️ 시스템 아키텍처
 
@@ -24,11 +25,9 @@ OCR (손글씨 → 텍스트)
     ↓
 번역 (다국어 → 한국어/영어)
     ↓
-감정 분석 (감정 상태 파악)
-    ↓
 스토리 생성 (개인화 동화 생성)
     ↓
-장면 분석 (스토리 구조화)
+장면 분석 (스토리 구조화)  →  감정 분석 (감정 상태 파악)
     ↓
 이미지 생성 (일러스트 생성)
     ↓
@@ -44,7 +43,6 @@ OCR (손글씨 → 텍스트)
 - easyocr==1.7.2: 다양한 언어를 지원하는 간편한 OCR(문자 인식) 라이브러리
 - fastapi==0.115.14: Python으로 빠르고 효율적인 REST API 서버를 쉽게 개발할 수 있는 웹 프레임워크
 - httpx==0.28.1: 비동기 및 동기 HTTP 요청을 지원하는 고성능 HTTP 클라이언트 라이브러리
-- kss.core==1.6.5: 한국어 문장 분리기 (Korean Sentence Splitter) 라이브러리
 - numpy==2.3.1: 고성능 수치 계산을 위한 배열 및 행렬 연산 라이브러리
 - Pillow==11.2.1: Python에서 이미지 처리와 조작을 위한 라이브러리 (PIL의 후속)
 - pydantic==2.11.7: 데이터 유효성 검사 및 설정 관리를 위한 타입 기반 모델링 라이브러리
@@ -56,11 +54,15 @@ OCR (손글씨 → 텍스트)
 
 
 ### 설치
+프로젝트
 ```bash
 git clone https://github.com/jiwoong5/storypool_ai_pipeline.git
 cd storypool_ai_pipeline
 pip install -r requirements.txt
 ```
+llama 모델 - 3.2b - 3B  
+- [llama download](https://www.llama.com/llama-downloads/)
+- [ollama_download](https://ollama.com/download)
 
 ### 실행
 ```bash
