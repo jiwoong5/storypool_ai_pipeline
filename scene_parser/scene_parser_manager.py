@@ -13,6 +13,11 @@ class SceneParserManager:
 
     def process(self, input_file: str, output_file: str):
         text = self.load_text(input_file)
-        scenes = self.parser.parse(text)
-        self.save_scenes(scenes, output_file)
-        return scenes
+        scene_response = self.parser.parse(text)
+        
+        scenes_dict = {}
+        for i, scene in enumerate(scene_response.scenes, 1):
+            scenes_dict[i] = scene.summary or f"Scene {i}"
+        
+        self.save_scenes(scenes_dict, output_file)
+        return scene_response

@@ -348,11 +348,15 @@ async def generate_story_from_text(request: StoryWriterTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "STORY_WRITER_TEXT_ERROR")
+        error_response = create_error_response(str(e), "STORY_WRITER_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content = jsonable_encoder(error_response.model_dump())
+        )
 
 # Scene Parser Endpoints
 @app.post("/scene/process", response_model=SceneParserResponse)
-async def process_scene_parser_file(file: UploadFile = File(...), parser_type: str = "basic"):
+async def process_scene_parser_file(file: UploadFile = File(...), parser_type: str = "llama"):
     start_time = time.time()
     output_dir = create_output_directory()
     
@@ -393,7 +397,11 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
         )
         
     except Exception as e:
-        return create_error_response(str(e), "SCENE_PARSER_ERROR")
+        error_response = create_error_response(str(e), "SCENE_PARSER_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content = jsonable_encoder(error_response.model_dump())
+        )
 
 @app.post("/scene/text", response_model=SceneParserResponse)
 async def parse_scenes_from_text(request: SceneParserTextRequest):
@@ -440,7 +448,11 @@ async def parse_scenes_from_text(request: SceneParserTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "SCENE_PARSER_TEXT_ERROR")
+        error_response = create_error_response(str(e), "SCENE_PARSER_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content = jsonable_encoder(error_response.model_dump())
+        )
 
 # Prompt Maker Endpoints
 @app.post("/prompt/process", response_model=PromptMakerResponse)

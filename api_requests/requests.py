@@ -18,6 +18,7 @@ class EmotionClassiferType(str, Enum):
 
 class SceneParserType(str, Enum):
     BASIC = "basic"
+    LLAMA = "llama"
 
 class PromptMakerType(str, Enum):
     LLAMA = "llama"
@@ -56,7 +57,7 @@ class StoryWriterTextRequest(BaseModel):
 # Scene Parser 요청
 class SceneParserRequest(BaseModel):
     input_file_path: Optional[str] = Field(None, description="장면 분석할 텍스트 파일 경로")
-    parser_type: SceneParserType = Field(default=SceneParserType.BASIC, description="사용할 장면 파서 타입")
+    parser_type: SceneParserType = Field(default=SceneParserType.LLAMA, description="사용할 장면 파서 타입")
 
 class SceneParserTextRequest(BaseModel):
     text: str = Field(..., description="장면 분석할 텍스트")
