@@ -307,7 +307,11 @@ async def process_story_writer_file(file: UploadFile = File(...), writer_type: s
         )
         
     except Exception as e:
-        return create_error_response(str(e), "STORY_WRITER_ERROR")
+        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content = jsonable_encoder(error_response.model_dump())
+        )
 
 @app.post("/story/text", response_model=StoryWriterResponse)
 async def generate_story_from_text(request: StoryWriterTextRequest):
