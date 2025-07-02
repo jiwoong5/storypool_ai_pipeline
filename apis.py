@@ -192,7 +192,7 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
 
 # Translator Endpoints
 @app.post("/translator/process", response_model=TranslatorResponse)
-async def process_translator_file(file: UploadFile = File(...), translator_type: str = "marin"):
+async def process_translator_file(file: UploadFile = File(...), translator_type: str = "marian"):
     start_time = time.time()
     output_dir = create_output_directory()
     
@@ -269,7 +269,11 @@ async def translate_text(request: TranslatorTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "TRANSLATOR_TEXT_ERROR")
+        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
+        return JSONResponse(
+            status_code=500,
+            content = jsonable_encoder(error_response.model_dump())
+        )
 
 # Story Writer Endpoints
 @app.post("/story/process", response_model=StoryWriterResponse)

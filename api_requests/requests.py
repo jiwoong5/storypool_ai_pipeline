@@ -7,7 +7,7 @@ class OCRReaderType(str, Enum):
     EASYOCR = "easyocr"
 
 class TranslatorType(str, Enum):
-    MARIN = "marin"
+    MARIAN = "marian"
     NLLB = "nllb"
 
 class StoryWriterType(str, Enum):
