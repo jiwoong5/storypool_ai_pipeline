@@ -366,41 +366,45 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
         
         scene_parser = SceneParserSelector.get_parser(parser_type)
         scene_parser_manager = SceneParserManager(scene_parser)
-        scene_parser_manager.process(input_path, output_path)
+        
+        # 파일 처리 및 결과 획득
+        parsing_result = scene_parser_manager.process(input_path, output_path)
         
         processing_time = time.time() - start_time
         
-        # Mock scene data - should be parsed from actual result
-        from api_responses.responses import SceneInfo
-        scenes = [
-            SceneInfo(
-                scene_number=1,
-                scene_title="Opening Scene",
-                characters=["Hero", "Mentor"],
-                location="Village",
-                time="Morning",
-                mood="Peaceful",
-                summary="The hero begins their journey",
-                dialogue_count=5
+        # 실제 파싱 결과를 사용하여 응답 생성
+        if parsing_result and hasattr(parsing_result, 'scenes'):
+            # parsing_result가 SceneParserResponse 객체인 경우
+            response = SceneParserResponse(
+                status=StatusCode.SUCCESS,
+                message="Scene parsing completed successfully",
+                processing_time=processing_time,
+                output_directory=output_dir,
+                scenes=parsing_result.scenes,
+                total_scenes=parsing_result.total_scenes,
+                main_characters=parsing_result.main_characters,
+                locations=parsing_result.locations
             )
-        ]
+        else:
+            # parsing_result가 None이거나 예상과 다른 형태인 경우
+            response = SceneParserResponse(
+                status=StatusCode.SUCCESS,
+                message="Scene parsing completed but no scenes were extracted",
+                processing_time=processing_time,
+                output_directory=output_dir,
+                scenes=[],
+                total_scenes=0,
+                main_characters=[],
+                locations=[]
+            )
         
-        return SceneParserResponse(
-            status=StatusCode.SUCCESS,
-            message="Scene parsing completed successfully",
-            processing_time=processing_time,
-            output_directory=output_dir,
-            scenes=scenes,
-            total_scenes=len(scenes),
-            main_characters=["Hero", "Mentor"],
-            locations=["Village"]
-        )
+        return response
         
     except Exception as e:
         error_response = create_error_response(str(e), "SCENE_PARSER_ERROR")
         return JSONResponse(
             status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
+            content=jsonable_encoder(error_response.model_dump())
         )
 
 @app.post("/scene/text", response_model=SceneParserResponse)
