@@ -1,13 +1,14 @@
-import json
 import re
-from typing import List, Dict, Any, Optional
-from dataclasses import asdict
+from typing import List, Dict, Any
 from api_responses.responses import SceneInfo, SceneParserResponse
+from api_responses.responses import SceneParserResponse
 from scene_parser.scene_parser_interface import SceneParserInterface
 from llama_tools.llama_helper import LlamaHelper
 from api_caller.api_caller_selector import APICallerSelector
 
 class ScenePostProcessor:
+    """장면 데이터 후처리를 담당하는 클래스"""
+    
     def __init__(self):
         self.common_characters = {
             "화자", "나", "주인공", "엄마", "아빠", "어머니", "아버지", 
@@ -15,22 +16,16 @@ class ScenePostProcessor:
             "narrator", "I", "me"
         }
         
-    def clean_llm_response(self, response: str) -> str:
-        """LLM 응답에서 JSON 부분만 추출"""
-        # JSON 코드 블록에서 추출
-        json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
-        if json_match:
-            return json_match.group(1)
-        
-        # JSON 객체 패턴 찾기 (가장 외부 중괄호)
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
-        if json_match:
-            return json_match.group(0)
-        
-        return response.strip()
-    
     def normalize_character_names(self, characters: List[str]) -> List[str]:
-        """등장인물 이름 정규화"""
+        """
+        등장인물 이름 정규화
+        
+        Args:
+            characters (List[str]): 정규화할 등장인물 목록
+            
+        Returns:
+            List[str]: 정규화된 등장인물 목록
+        """
         if not characters:
             return []
             
@@ -56,13 +51,29 @@ class ScenePostProcessor:
         return list(set(normalized))  # 중복 제거
     
     def validate_scene_number(self, scenes: List[Dict]) -> List[Dict]:
-        """장면 번호 검증 및 수정"""
+        """
+        장면 번호 검증 및 수정
+        
+        Args:
+            scenes (List[Dict]): 검증할 장면 목록
+            
+        Returns:
+            List[Dict]: 번호가 수정된 장면 목록
+        """
         for i, scene in enumerate(scenes):
             scene['scene_number'] = i + 1
         return scenes
     
     def extract_main_characters_and_locations(self, scenes: List[SceneInfo]) -> tuple:
-        """전체 장면에서 주요 등장인물과 장소 추출 - Pydantic 모델용"""
+        """
+        전체 장면에서 주요 등장인물과 장소 추출
+        
+        Args:
+            scenes (List[SceneInfo]): 분석할 장면 목록
+            
+        Returns:
+            tuple: (주요 등장인물 목록, 고유 장소 목록)
+        """
         all_characters = []
         all_locations = []
         
@@ -84,7 +95,15 @@ class ScenePostProcessor:
         return main_characters, unique_locations
     
     def validate_dialogue_count(self, dialogue_count: Any) -> int:
-        """대화 수 검증"""
+        """
+        대화 수 검증 및 정규화
+        
+        Args:
+            dialogue_count (Any): 검증할 대화 수
+            
+        Returns:
+            int: 정규화된 대화 수
+        """
         if dialogue_count is None:
             return 0
         if isinstance(dialogue_count, str):
@@ -99,19 +118,16 @@ class ScenePostProcessor:
         except:
             return 0
     
-    def fix_json_format(self, json_str: str) -> str:
-        """일반적인 JSON 형식 오류 수정"""
-        # trailing comma 제거
-        json_str = re.sub(r',\s*}', '}', json_str)
-        json_str = re.sub(r',\s*]', ']', json_str)
-        
-        # single quote를 double quote로 변경
-        json_str = re.sub(r"'", '"', json_str)
-        
-        return json_str
-    
     def create_scene_info_from_dict(self, scene_data: Dict) -> SceneInfo:
-        """딕셔너리에서 SceneInfo Pydantic 모델 생성"""
+        """
+        딕셔너리에서 SceneInfo Pydantic 모델 생성
+        
+        Args:
+            scene_data (Dict): 장면 데이터 딕셔너리
+            
+        Returns:
+            SceneInfo: 생성된 SceneInfo 모델
+        """
         # 등장인물 정규화
         characters = self.normalize_character_names(
             scene_data.get('characters', [])
@@ -134,6 +150,15 @@ class ScenePostProcessor:
         )
     
     def process_response(self, data: Dict) -> SceneParserResponse:
+        """
+        LLM 응답 데이터를 처리하여 SceneParserResponse 생성
+        
+        Args:
+            data (Dict): 처리할 응답 데이터
+            
+        Returns:
+            SceneParserResponse: 처리된 장면 파싱 응답
+        """
         scenes_data = data.get('scenes', [])
         if not isinstance(scenes_data, list):
             scenes_data = []
@@ -161,9 +186,16 @@ class ScenePostProcessor:
             main_characters=self.normalize_character_names(main_characters),
             locations=locations
         )
-
+    
 class LlamaSceneParser(SceneParserInterface):
+    """Llama 모델을 사용한 장면 파싱 클래스"""
+    
     def __init__(self, model: str = "llama3.2:3b", api_url: str = "http://localhost:11434/api/generate"):
+        """
+        Args:
+            model (str): 사용할 Llama 모델
+            api_url (str): API 엔드포인트 URL
+        """
         self.llm_helper = LlamaHelper(
             call_api_fn=APICallerSelector.select("llama", model=model, api_url=api_url),
         )
@@ -222,7 +254,9 @@ class LlamaSceneParser(SceneParserInterface):
         
         try:
             instruction = self.llm_helper.build_instruction(main_instruction, text_content, caution)
+            # LlamaHelper의 retry_and_get_json이 내부적으로 JsonMaker를 사용하여 JSON 처리
             raw_data = self.llm_helper.retry_and_get_json(instruction, description="장면 분석")
+            # ScenePostProcessor는 이제 비즈니스 로직(정규화, 검증 등)만 처리
             processed_result = self.post_processor.process_response(raw_data)
             return processed_result
             

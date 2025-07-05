@@ -6,7 +6,7 @@ import os
 import time
 from datetime import datetime
 from typing import Optional, List
-import tempfile
+import json
 import shutil
 
 # Import request and response models
@@ -357,6 +357,9 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
         scene_parser = SceneParserSelector.get_parser(parser_type)
         scene_parser_manager = SceneParserManager(scene_parser)
         
+        # 파일 처리 및 결과 획득
+        parsing_result = scene_parser_manager.process(input_path, output_path)
+        
         # Process the file and get the result
         scene_response = scene_parser_manager.process(input_path, output_path)
         
@@ -365,12 +368,39 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
         scene_response.processing_time = processing_time
         scene_response.output_directory = output_dir
         
-        return scene_response
+        # 실제 파싱 결과를 사용하여 응답 생성
+        if parsing_result and hasattr(parsing_result, 'scenes'):
+            # parsing_result가 SceneParserResponse 객체인 경우
+            response = SceneParserResponse(
+                status=StatusCode.SUCCESS,
+                message="Scene parsing completed successfully",
+                processing_time=processing_time,
+                output_directory=output_dir,
+                scenes=parsing_result.scenes,
+                total_scenes=parsing_result.total_scenes,
+                main_characters=parsing_result.main_characters,
+                locations=parsing_result.locations
+            )
+        else:
+            # parsing_result가 None이거나 예상과 다른 형태인 경우
+            response = SceneParserResponse(
+                status=StatusCode.SUCCESS,
+                message="Scene parsing completed but no scenes were extracted",
+                processing_time=processing_time,
+                output_directory=output_dir,
+                scenes=[],
+                total_scenes=0,
+                main_characters=[],
+                locations=[]
+            )
+        
+        return response
         
     except Exception as e:
         err_resp, status_code = create_error_response(str(e), "SCENE_PARSER_ERROR", 500)
         raise HTTPException(status_code=status_code, detail=err_resp.dict())
     
+
 @app.post("/scene/text", response_model=SceneParserResponse)
 async def parse_scenes_from_text(request: SceneParserTextRequest):
     start_time = time.time()
@@ -426,32 +456,62 @@ async def process_prompt_maker_file(file: UploadFile = File(...), prompt_maker_t
     output_dir = create_output_directory()
     
     try:
+        # 업로드된 파일 저장
         input_path = await save_uploaded_file(file, output_dir)
         output_path = os.path.join(output_dir, "prompts.txt")
         
+        # 프롬프트 메이커 설정
         prompt_maker = PromptMakerSelector.get_prompt_maker(prompt_maker_type)
         prompt_manager = PromptMakerManager(prompt_maker)
-        prompt_manager.process(input_path, output_path)
         
-        generated_prompt = ""
-        if os.path.exists(output_path):
-            with open(output_path, 'r', encoding='utf-8') as f:
-                generated_prompt = f.read()
+        # 프롬프트 생성 처리
+        result = prompt_manager.process(input_path, output_path)
         
+        # 처리 시간 계산
         processing_time = time.time() - start_time
         
+        # 장면 데이터에서 정보 추출
+        prompts = result['prompts']
+        
         return PromptMakerResponse(
-            status=StatusCode.SUCCESS,
-            message="Prompt generation completed successfully",
+            status="success",
+            message=f"Prompt generation completed successfully for {len(prompts)} scenes",
             processing_time=processing_time,
             output_directory=output_dir,
-            generated_prompt=generated_prompt
+            generated_prompt=prompts
         )
         
     except Exception as e:
         err_resp, status_code = create_error_response(str(e), "PROMPT_MAKER_ERROR", 500)
         raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
+    except FileNotFoundError:
+        error_response = ErrorResponse(
+            success=False,
+            message="Input file not found",
+            processing_time=time.time() - start_time,
+            output_directory=output_dir,
+            error_details="file not found",
+            stack_trace=None
+        )
+        return JSONResponse(
+            status_code=402,
+            content=jsonable_encoder(error_response)
+        )
+
+    except Exception as e:
+        error_response = ErrorResponse(
+            success=False,
+            message=f"Prompt generation failed: {str(e)}",
+            processing_time=time.time() - start_time,
+            output_directory=output_dir,
+            error_details="",
+        )
+        return JSONResponse(
+            status_code=500,
+            content=jsonable_encoder(error_response)
+        )
+    
 @app.post("/prompt/text", response_model=PromptMakerResponse)
 async def generate_prompt_from_text(request: PromptMakerTextRequest):
     start_time = time.time()

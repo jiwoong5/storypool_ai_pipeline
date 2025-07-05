@@ -69,6 +69,7 @@ class SceneParserResponse(BaseResponse):
 
 # Prompt Maker 응답
 class PromptMakerResponse(BaseResponse):
+    scene_number: int = Field(..., description="장면 번호")
     generated_prompt: Optional[str] = Field(None, description="생성된 프롬프트")
 
 # Emotion Classifier 응답
