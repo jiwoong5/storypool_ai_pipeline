@@ -362,7 +362,7 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
     
     try:
         input_path = await save_uploaded_file(file, output_dir)
-        output_path = os.path.join(output_dir, "scenes.txt")
+        output_path = os.path.join(output_dir, "scenes.json")
         
         scene_parser = SceneParserSelector.get_parser(parser_type)
         scene_parser_manager = SceneParserManager(scene_parser)
