@@ -10,13 +10,18 @@ class StatusCode(str, Enum):
     PROCESSING = "processing"
     PARTIAL_SUCCESS = "partial_success"
 
-# 기본 응답 모델 (output_directory 추가)
+# 기본 응답 모델
 class BaseResponse(BaseModel):
     status: StatusCode = Field(..., description="처리 상태")
     message: str = Field(..., description="응답 메시지")
     timestamp: datetime = Field(default_factory=datetime.now, description="응답 시간")
     processing_time: Optional[float] = Field(None, description="처리 시간 (초)")
     output_directory: Optional[str] = Field(None, description="결과 출력 디렉토리 경로")
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 # OCR 응답
 class OCRResponse(BaseResponse):
@@ -65,10 +70,6 @@ class SceneParserResponse(BaseResponse):
 # Prompt Maker 응답
 class PromptMakerResponse(BaseResponse):
     generated_prompt: Optional[str] = Field(None, description="생성된 프롬프트")
-    prompt_type: Optional[str] = Field(None, description="프롬프트 유형")
-    keywords: List[str] = Field(default_factory=list, description="추출된 키워드")
-    estimated_length: Optional[int] = Field(None, description="예상 응답 길이")
-    prompt_quality_score: Optional[float] = Field(None, description="프롬프트 품질 점수")
 
 # Emotion Classifier 응답
 class EmotionScore(BaseModel):

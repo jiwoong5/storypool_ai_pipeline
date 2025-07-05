@@ -3,11 +3,10 @@ import json
 import re
 
 class LlamaHelper:
-    def __init__(self, call_api_fn):
-        """
-        :param call_api_fn: LLM 호출 함수 (str -> dict)
-        """
+    def __init__(self, call_api_fn, temperature=0.3, top_p=0.9):
         self.call_api = call_api_fn
+        self.temperature = temperature
+        self.top_p = top_p
 
     def build_instruction(self, main_instruction: str, content: str, caution: str) -> str:
         return f"{main_instruction.strip()}\n{content.strip()}\n{caution.strip()}"
@@ -31,9 +30,6 @@ class LlamaHelper:
                 response = self.call_api(instruction)
                 text = response["response"].strip()
                 
-                # PostProcessor의 clean_llm_response + fix_json_format 역할 통합
-                text = self.post_process_json_string(text)
-                
                 # JSON 파싱
                 return json.loads(text)
                 
@@ -47,12 +43,3 @@ class LlamaHelper:
                 if attempt == max_retries:
                     raise
                 print(f"다시 {description}을(를) 시도합니다...")
-
-    def post_process_json_string(self, text: str) -> str:
-        # PostProcessor의 fix_json_format 로직을 이쪽으로 옮김
-        text = re.sub(r'```json\s*', '', text)
-        text = re.sub(r'```', '', text)
-        text = re.sub(r',\s*}', '}', text)
-        text = re.sub(r',\s*]', ']', text)
-        text = re.sub(r"'", '"', text)
-        return text.strip()

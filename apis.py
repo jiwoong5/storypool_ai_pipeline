@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi import status
 import os
 import time
 from datetime import datetime
@@ -61,9 +62,14 @@ async def save_uploaded_file(file: UploadFile, directory: str) -> str:
     return file_path
 
 # Error handler
-def create_error_response(error_message: str, error_code: str = "PROCESSING_ERROR") -> ErrorResponse:
+def create_error_response(
+    error_message: str,
+    error_code: str = "PROCESSING_ERROR",
+    http_status: int = status.HTTP_500_INTERNAL_SERVER_ERROR 
+) -> tuple[ErrorResponse, int]:
     from api_responses.responses import ErrorDetail
-    return ErrorResponse(
+
+    error_response = ErrorResponse(
         status=StatusCode.ERROR,
         message="Processing failed",
         error_details=ErrorDetail(
@@ -73,6 +79,7 @@ def create_error_response(error_message: str, error_code: str = "PROCESSING_ERRO
             suggestion="Please check your input and try again"
         )
     )
+    return error_response, http_status
 
 # Health Check
 @app.get("/health", response_model=HealthCheckResponse)
@@ -124,11 +131,8 @@ async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "eas
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "OCR_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content=error_response.dict()
-        )
+        err_resp, status_code = create_error_response(str(e), "OCR_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/ocr/batch", response_model=OCRBatchResponse)
 async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: str = "easyocr"):
@@ -184,11 +188,8 @@ async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: st
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "OCR_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content=error_response.dict()
-        )
+        err_resp, status_code = create_error_response(str(e), "OCR_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Translator Endpoints
 @app.post("/translator/process", response_model=TranslatorResponse)
@@ -228,11 +229,8 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
+        err_resp, status_code = create_error_response(str(e), "TRANSLATOR_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/translator/text", response_model=TranslatorResponse)
 async def translate_text(request: TranslatorTextRequest):
@@ -269,11 +267,8 @@ async def translate_text(request: TranslatorTextRequest):
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
+        err_resp, status_code = create_error_response(str(e), "TRANSLATOR_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Story Writer Endpoints
 @app.post("/story/process", response_model=StoryWriterResponse)
@@ -307,11 +302,9 @@ async def process_story_writer_file(file: UploadFile = File(...), writer_type: s
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "TRANSLATOR_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
+        err_resp, status_code = create_error_response(str(e), "TRANSLATOR_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
+    
 
 @app.post("/story/text", response_model=StoryWriterResponse)
 async def generate_story_from_text(request: StoryWriterTextRequest):
@@ -348,11 +341,8 @@ async def generate_story_from_text(request: StoryWriterTextRequest):
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "STORY_WRITER_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
+        err_resp, status_code = create_error_response(str(e), "STORY_WRITER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Scene Parser Endpoints
 @app.post("/scene/process", response_model=SceneParserResponse)
@@ -362,47 +352,25 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
     
     try:
         input_path = await save_uploaded_file(file, output_dir)
-        output_path = os.path.join(output_dir, "scenes.txt")
+        output_path = os.path.join(output_dir, "scenes.json")
         
         scene_parser = SceneParserSelector.get_parser(parser_type)
         scene_parser_manager = SceneParserManager(scene_parser)
-        scene_parser_manager.process(input_path, output_path)
         
+        # Process the file and get the result
+        scene_response = scene_parser_manager.process(input_path, output_path)
+        
+        # BaseResponse 필드들 설정
         processing_time = time.time() - start_time
+        scene_response.processing_time = processing_time
+        scene_response.output_directory = output_dir
         
-        # Mock scene data - should be parsed from actual result
-        from api_responses.responses import SceneInfo
-        scenes = [
-            SceneInfo(
-                scene_number=1,
-                scene_title="Opening Scene",
-                characters=["Hero", "Mentor"],
-                location="Village",
-                time="Morning",
-                mood="Peaceful",
-                summary="The hero begins their journey",
-                dialogue_count=5
-            )
-        ]
-        
-        return SceneParserResponse(
-            status=StatusCode.SUCCESS,
-            message="Scene parsing completed successfully",
-            processing_time=processing_time,
-            output_directory=output_dir,
-            scenes=scenes,
-            total_scenes=len(scenes),
-            main_characters=["Hero", "Mentor"],
-            locations=["Village"]
-        )
+        return scene_response
         
     except Exception as e:
-        error_response = create_error_response(str(e), "SCENE_PARSER_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
-
+        err_resp, status_code = create_error_response(str(e), "SCENE_PARSER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
+    
 @app.post("/scene/text", response_model=SceneParserResponse)
 async def parse_scenes_from_text(request: SceneParserTextRequest):
     start_time = time.time()
@@ -448,11 +416,8 @@ async def parse_scenes_from_text(request: SceneParserTextRequest):
         )
         
     except Exception as e:
-        error_response = create_error_response(str(e), "SCENE_PARSER_ERROR")
-        return JSONResponse(
-            status_code=500,
-            content = jsonable_encoder(error_response.model_dump())
-        )
+        err_resp, status_code = create_error_response(str(e), "SCENE_PARSER", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Prompt Maker Endpoints
 @app.post("/prompt/process", response_model=PromptMakerResponse)
@@ -480,15 +445,12 @@ async def process_prompt_maker_file(file: UploadFile = File(...), prompt_maker_t
             message="Prompt generation completed successfully",
             processing_time=processing_time,
             output_directory=output_dir,
-            generated_prompt=generated_prompt,
-            prompt_type="creative",
-            keywords=["adventure", "hero", "journey"],
-            estimated_length=100,
-            prompt_quality_score=0.85
+            generated_prompt=generated_prompt
         )
         
     except Exception as e:
-        return create_error_response(str(e), "PROMPT_MAKER_ERROR")
+        err_resp, status_code = create_error_response(str(e), "PROMPT_MAKER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/prompt/text", response_model=PromptMakerResponse)
 async def generate_prompt_from_text(request: PromptMakerTextRequest):
@@ -526,7 +488,8 @@ async def generate_prompt_from_text(request: PromptMakerTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "PROMPT_MAKER_TEXT_ERROR")
+        err_resp, status_code = create_error_response(str(e), "PROMPT_MAKER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Emotion Classifier Endpoints
 @app.post("/emotion/process", response_model=EmotionClassifierResponse)
@@ -564,7 +527,8 @@ async def process_emotion_classifier_file(file: UploadFile = File(...), emotion_
         )
         
     except Exception as e:
-        return create_error_response(str(e), "EMOTION_CLASSIFIER_ERROR")
+        err_resp, status_code = create_error_response(str(e), "EMOTION_CLASSIFIER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/emotion/text", response_model=EmotionClassifierResponse)
 async def classify_emotion_from_text(request: EmotionClassifierTextRequest):
@@ -604,7 +568,8 @@ async def classify_emotion_from_text(request: EmotionClassifierTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "EMOTION_CLASSIFIER_TEXT_ERROR")
+        err_resp, status_code = create_error_response(str(e), "EMOTION_CLASSIFIER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/emotion/batch", response_model=EmotionClassifierBatchResponse)
 async def process_emotion_classifier_batch(files: List[UploadFile] = File(...), emotion_classifer_type: str = "minilm"):
@@ -646,7 +611,8 @@ async def process_emotion_classifier_batch(files: List[UploadFile] = File(...), 
         )
         
     except Exception as e:
-        return create_error_response(str(e), "EMOTION_CLASSIFIER_BATCH_ERROR")
+        err_resp, status_code = create_error_response(str(e), "EMOTION_CLASSIFIER_BATCH_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 # Image Maker Endpoints
 @app.post("/image/process", response_model=ImageMakerResponse)
@@ -691,7 +657,8 @@ async def process_image_maker_file(file: UploadFile = File(...), image_maker_typ
         )
         
     except Exception as e:
-        return create_error_response(str(e), "IMAGE_MAKER_ERROR")
+        err_resp, status_code = create_error_response(str(e), "IMAGE_MAKER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 @app.post("/image/text", response_model=ImageMakerResponse)
 async def generate_image_from_text(request: ImageMakerTextRequest):
@@ -741,7 +708,8 @@ async def generate_image_from_text(request: ImageMakerTextRequest):
         )
         
     except Exception as e:
-        return create_error_response(str(e), "IMAGE_MAKER_TEXT_ERROR")
+        err_resp, status_code = create_error_response(str(e), "IMAGE_MAKER_ERROR", 500)
+        raise HTTPException(status_code=status_code, detail=err_resp.dict())
 
 if __name__ == "__main__":
     import uvicorn
