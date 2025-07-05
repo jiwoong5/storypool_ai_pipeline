@@ -64,11 +64,8 @@ class SceneParserResponse(BaseResponse):
 
 # Prompt Maker 응답
 class PromptMakerResponse(BaseResponse):
+    scene_number: int = Field(..., description="장면 번호")
     generated_prompt: Optional[str] = Field(None, description="생성된 프롬프트")
-    prompt_type: Optional[str] = Field(None, description="프롬프트 유형")
-    keywords: List[str] = Field(default_factory=list, description="추출된 키워드")
-    estimated_length: Optional[int] = Field(None, description="예상 응답 길이")
-    prompt_quality_score: Optional[float] = Field(None, description="프롬프트 품질 점수")
 
 # Emotion Classifier 응답
 class EmotionScore(BaseModel):

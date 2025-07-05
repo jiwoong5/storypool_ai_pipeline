@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime
 from typing import Optional, List
-import tempfile
+import json
 import shutil
 
 # Import request and response models
@@ -465,35 +465,74 @@ async def process_prompt_maker_file(file: UploadFile = File(...), prompt_maker_t
     output_dir = create_output_directory()
     
     try:
+        # 업로드된 파일 저장
         input_path = await save_uploaded_file(file, output_dir)
         output_path = os.path.join(output_dir, "prompts.txt")
         
+        # 프롬프트 메이커 설정
         prompt_maker = PromptMakerSelector.get_prompt_maker(prompt_maker_type)
         prompt_manager = PromptMakerManager(prompt_maker)
-        prompt_manager.process(input_path, output_path)
         
-        generated_prompt = ""
-        if os.path.exists(output_path):
-            with open(output_path, 'r', encoding='utf-8') as f:
-                generated_prompt = f.read()
+        # 프롬프트 생성 처리
+        result = prompt_manager.process(input_path, output_path)
         
+        # 처리 시간 계산
         processing_time = time.time() - start_time
         
+        # 장면 데이터에서 정보 추출
+        scenes_data = result['scenes_data']
+        prompts = result['prompts']
+        
         return PromptMakerResponse(
-            status=StatusCode.SUCCESS,
-            message="Prompt generation completed successfully",
+            status="success",
+            message=f"Prompt generation completed successfully for {len(prompts)} scenes",
             processing_time=processing_time,
             output_directory=output_dir,
-            generated_prompt=generated_prompt,
-            prompt_type="creative",
-            keywords=["adventure", "hero", "journey"],
-            estimated_length=100,
-            prompt_quality_score=0.85
+            generated_prompts=prompts,
+            total_scenes=scenes_data.get('total_scenes', len(prompts))
         )
         
-    except Exception as e:
-        return create_error_response(str(e), "PROMPT_MAKER_ERROR")
+    except json.JSONDecodeError:
+        error_response = ErrorResponse(
+            success=False,
+            message="Invalid JSON file format",
+            processing_time=time.time() - start_time,
+            output_directory=output_dir,
+            error_details="",
+            stack_trace=None
+        )
+        return JSONResponse(
+            status_code=401,
+            content=jsonable_encoder(error_response)
+        )
 
+    except FileNotFoundError:
+        error_response = ErrorResponse(
+            success=False,
+            message="Input file not found",
+            processing_time=time.time() - start_time,
+            output_directory=output_dir,
+            error_details="file not found",
+            stack_trace=None
+        )
+        return JSONResponse(
+            status_code=402,
+            content=jsonable_encoder(error_response)
+        )
+
+    except Exception as e:
+        error_response = ErrorResponse(
+            success=False,
+            message=f"Prompt generation failed: {str(e)}",
+            processing_time=time.time() - start_time,
+            output_directory=output_dir,
+            error_details="",
+        )
+        return JSONResponse(
+            status_code=500,
+            content=jsonable_encoder(error_response)
+        )
+    
 @app.post("/prompt/text", response_model=PromptMakerResponse)
 async def generate_prompt_from_text(request: PromptMakerTextRequest):
     start_time = time.time()
