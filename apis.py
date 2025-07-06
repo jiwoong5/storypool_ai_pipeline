@@ -464,10 +464,10 @@ async def process_prompt_maker_file(file: UploadFile = File(...), prompt_maker_t
         prompt_maker = PromptMakerSelector.get_prompt_maker(prompt_maker_type)
         prompt_manager = PromptMakerManager(prompt_maker)
         
-        processing_time = time.time() - start_time
-        
         # 프롬프트 생성 처리
         result = prompt_manager.process(input_path, output_path)
+
+        processing_time = time.time() - start_time
         
          # scene_number와 generated_prompt를 리스트로 분리
         scene_numbers = [item["scene_number"] for item in result["prompts"]]

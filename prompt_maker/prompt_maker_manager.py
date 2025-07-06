@@ -53,9 +53,7 @@ class PromptMakerManager:
             # make_prompts 로 프롬프트 생성
             results = self.prompt_maker.make_prompts(scene_texts)
 
-            # 프롬프트 저장
-            if save_json:
-                self.save_prompts_json(results, output_path)
+            self.save_prompts_json(results, output_path)
 
             return {
                 "prompts": results.get("prompts", []),

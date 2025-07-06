@@ -18,7 +18,7 @@ class LlamaPromptMaker(PromptMakerInterface):
         return """You are an expert prompt engineer specializing in creating high-quality image generation prompts with strong emphasis on character consistency.
 
     ## Task:
-    Transform provided scene data into a detailed, high-quality image generation prompt with character consistency.
+    Transform provided scene data into a detailed, high-quality image generation prompt that **strictly maintains character consistency** across all scenes.
 
     ## Input Format (Example):
     - Scene Number: 1
@@ -31,25 +31,25 @@ class LlamaPromptMaker(PromptMakerInterface):
     - Dialogue Count: 0
 
     ## Guidelines:
-    - Always describe characters using detailed, consistent physical features (age, build, hair, clothing, expression, posture)
-    - Never use character names — use descriptive phrases instead
-    - Maintain consistent character descriptions across scenes
-    - Focus on character appearance, pose, interaction, and visual prominence
-    - Include clear composition, lighting, mood, and style references
-    - Include technical quality keywords (e.g., ultra-detailed, 8K resolution, cinematic lighting)
-    - The prompt should be 150-300 characters long
-    - Response MUST be a valid JSON object as shown below — **NO reasoning, no explanations**
+    - ALWAYS describe the main character(s) using detailed, consistent physical features (age, build, hair, clothing, expression, posture).
+    - NEVER use character names — use descriptive phrases (e.g., "slim young adult woman with shoulder-length brown hair").
+    - ALL SCENES must describe the same main character(s) consistently in terms of appearance.
+    - Focus on character appearance, pose, interaction, and prominence in the scene.
+    - Include clear composition, lighting, mood, and style references.
+    - Include technical quality keywords (e.g., ultra-detailed, 8K resolution, cinematic lighting).
+    - Each prompt must be 150-300 characters long.
+    - Response MUST be a valid JSON object exactly as shown below — **NO reasoning, no explanations, no extra text**.
 
-    ## Response Format:
+    ## Response Format (Example):
     {
     "prompts": [
         {
         "scene_number": 1,
-        "generated_prompt": "Cinematic medium shot of slim young adult woman with shoulder-length brown hair wearing t-shirt and jeans, sitting on bed against wall in sunlit bedroom, natural morning light through window, relaxed posture, soft focus, ultra-detailed, 8K resolution"
+        "generated_prompt": "Soft storybook illustration of a slim young adult woman with shoulder-length brown hair wearing a cozy white t-shirt and distressed denim jeans, sitting peacefully on a bed against the wall in a warmly sunlit bedroom, natural morning light filtering softly through the window, gentle expression, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
         },
         {
         "scene_number": 2,
-        "generated_prompt": "Vibrant wide shot of young adult woman with shoulder-length brown hair and middle-aged woman with silver hair in yellow sundress sitting on blanket in sunny park, children playing in background, warm light, relaxed poses, ultra-detailed, high definition"
+        "generated_prompt": "Warm storybook illustration of the same slim young adult woman with shoulder-length brown hair wearing the same cozy white t-shirt and distressed denim jeans, sitting on a blanket beside a middle-aged woman with silver hair in a flowing yellow sundress in a sunny park, children playing in the background, soft warm light, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
         }
     ],
     "total_prompts": 2
@@ -58,17 +58,18 @@ class LlamaPromptMaker(PromptMakerInterface):
     ## Please write prompts based on the following input
     {scene_data}
     """
+
     
     def _get_caution(self) -> str:
-        """프롬프트 생성 시 주의사항 (캐릭터 일관성 강화)"""
         return """CRITICAL CAUTIONS:
-    1. Always respond in valid JSON format exactly as specified — no additional text or reasoning.
-    2. Describe characters consistently with detailed physical features: age, build, hair, clothing, expression, posture.
-    3. Do not use character names — use descriptive phrases.
+    1. ALWAYS respond in valid JSON format exactly as specified — no additional text or reasoning.
+    2. Characters must be described consistently across ALL scenes: age, build, hair, clothing, expression, posture.
+    3. DO NOT use character names — use descriptive phrases like "slim young adult woman with shoulder-length brown hair".
     4. Prompts must be 150-300 characters long.
     5. Include artistic style, composition, lighting, and technical quality keywords (e.g., ultra-detailed, 8K resolution).
     6. Ensure character positioning, interaction, and prominence are clear.
-    7. Environmental elements should support, not overshadow, characters."""
+    7. Environmental elements must support and not overshadow the characters.
+    8. DO NOT change the character’s physical description between scenes — this is critical."""
 
     def get_error_response(self, error_message: str, scene_index: int = None) -> dict:
             """

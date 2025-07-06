@@ -1,4 +1,4 @@
-import re
+import json
 from pathlib import Path
 from image_maker.image_maker_interface import ImageMakerInterface
 
@@ -7,11 +7,13 @@ class ImageMakerManager:
         self.image_maker = image_maker
 
     def extract_prompts(self, filename: str) -> list[str]:
+        """
+        JSON 파일에서 generated_prompt 리스트 추출
+        """
         with open(filename, 'r', encoding='utf-8') as f:
-            content = f.read()
+            data = json.load(f)
 
-        scene_blocks = re.split(r'Scene \d+:', content)
-        prompts = [block.strip() for block in scene_blocks if block.strip()]
+        prompts = [item["generated_prompt"] for item in data.get("prompts", []) if "generated_prompt" in item]
         return prompts
 
     def process(self, input_path: str, output_dir: str):
@@ -24,6 +26,6 @@ class ImageMakerManager:
                 print(f"\n[{i}/{len(prompts)}] Generating image for prompt: {prompt[:60]}...")
                 image = self.image_maker.generate_image(prompt)
                 image.save(output_dir / f"result{i}.png")
-                print(f"Saved to: result{i}.png")
+                print(f"Saved to: {output_dir / f'result{i}.png'}")
             except Exception as e:
                 print(f"Error in prompt {i}: {e}")

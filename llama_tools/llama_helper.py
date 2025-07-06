@@ -63,8 +63,6 @@ class LlamaHelper:
                 response = self.call_api(instruction)
                 json_str = response["response"].strip()
                 
-                print(json_str)
-
                 # 유효성 검증
                 if not self.json_maker.is_valid_json(json_str):
                     raise json.JSONDecodeError("JSON 유효성 검증 실패", json_str, 0)
