@@ -5,8 +5,7 @@ from api_caller.api_caller_selector import APICallerSelector
 class LlamaStoryWriter(StoryWriterInterface):
     def __init__(self, model: str = "llama3.2:3b", api_url: str = "http://localhost:11434/api/generate"):
         self.llm_helper = LlamaHelper(
-            call_api_fn=APICallerSelector.select("llama", model=model, api_url=api_url),
-            delimiter="---"
+            call_api_fn=APICallerSelector.select("llama", model=model, api_url=api_url)
         )
 
     def generate_story(self, text_content: str) -> str:

@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional, List
 import json
 import shutil
+from constants.configs.configs import PipelineConfig
 
 # Import request and response models
 from api_requests.requests import (
@@ -15,14 +16,14 @@ from api_requests.requests import (
     StoryWriterRequest, StoryWriterTextRequest, SceneParserRequest, SceneParserTextRequest,
     PromptMakerRequest, PromptMakerTextRequest, EmotionClassifierRequest, 
     EmotionClassifierTextRequest, EmotionClassifierBatchRequest,
-    ImageMakerRequest, ImageMakerTextRequest
+    ImageMakerRequest, ImageMakerTextRequest, PipelineRequest, PipelineTextRequest
 )
 
 from api_responses.responses import (
     OCRResponse, OCRBatchResponse, TranslatorResponse, StoryWriterResponse,
     SceneParserResponse, PromptMakerResponse, EmotionClassifierResponse,
     EmotionClassifierBatchResponse, ImageMakerResponse, ErrorResponse,
-    HealthCheckResponse, StatusCode
+    HealthCheckResponse, StatusCode, PipelineResponse
 )
 
 # Import managers and selectors
@@ -40,6 +41,7 @@ from emotion_classifier.emotion_classifier_selector import EmotionClassifierSele
 from emotion_classifier.emotion_classifier_manager import EmotionClassifierManager
 from image_maker.image_maker_selector import ImageMakerSelector
 from image_maker.image_maker_manager import ImageMakerManager
+from pipeline.ai_processing_pipeline import AIProcessingPipeline
 
 app = FastAPI(
     title="Multi-Modal Processing API",
@@ -379,7 +381,9 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
                 scenes=parsing_result.scenes,
                 total_scenes=parsing_result.total_scenes,
                 main_characters=parsing_result.main_characters,
-                locations=parsing_result.locations
+                locations=parsing_result.locations,
+                start_char=parsing_result.start_char,
+                end_char=parsing_result.end_char
             )
         else:
             # parsing_result가 None이거나 예상과 다른 형태인 경우
@@ -391,7 +395,9 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
                 scenes=[],
                 total_scenes=0,
                 main_characters=[],
-                locations=[]
+                locations=[],
+                start_char=0,
+                end_char=0
             )
         
         return response
@@ -771,6 +777,94 @@ async def generate_image_from_text(request: ImageMakerTextRequest):
     except Exception as e:
         err_resp, status_code = create_error_response(str(e), "IMAGE_MAKER_ERROR", 500)
         raise HTTPException(status_code=status_code, detail=err_resp.dict())
+
+# FastAPI Pipeline Endpoints
+@app.post("/pipeline/process", response_model=PipelineResponse)
+async def run_pipeline_from_file(
+    file: UploadFile = File(...),
+    config: Optional[str] = None
+):
+    """Run complete AI processing pipeline from uploaded file"""
+    try:
+        # Parse config if provided
+        pipeline_config = PipelineConfig()
+        if config:
+            config_dict = json.loads(config)
+            pipeline_config = PipelineConfig(**config_dict)
+        
+        # Create and run pipeline
+        pipeline = AIProcessingPipeline(pipeline_config)
+        result = await pipeline.run_from_file(file)
+        
+        # Convert to response format
+        steps_dict = []
+        for step in result.steps:
+            steps_dict.append({
+                "step_name": step.step_name,
+                "status": step.status,
+                "processing_time": step.processing_time,
+                "error_message": step.error_message,
+                "output_files": step.output_files or []
+            })
+        
+        return PipelineResponse(
+            pipeline_id=result.pipeline_id,
+            status=result.status,
+            message=f"Pipeline {result.status}",
+            processing_time=result.total_processing_time,
+            output_directory=result.output_directory,
+            steps=steps_dict,
+            final_images=result.final_images,
+            metadata=result.metadata
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
+
+@app.post("/pipeline/text", response_model=PipelineResponse)
+async def run_pipeline_from_text(request: PipelineTextRequest):
+    """Run pipeline from text input (skip OCR)"""
+    try:
+        # Create and run pipeline
+        pipeline = AIProcessingPipeline(request.config)
+        result = await pipeline.run_from_text(request.input_text)
+        
+        # Convert to response format
+        steps_dict = []
+        for step in result.steps:
+            steps_dict.append({
+                "step_name": step.step_name,
+                "status": step.status,
+                "processing_time": step.processing_time,
+                "error_message": step.error_message,
+                "output_files": step.output_files or []
+            })
+        
+        return PipelineResponse(
+            pipeline_id=result.pipeline_id,
+            status=result.status,
+            message=f"Pipeline {result.status}",
+            processing_time=result.total_processing_time,
+            output_directory=result.output_directory,
+            steps=steps_dict,
+            final_images=result.final_images,
+            metadata=result.metadata
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
+
+@app.get("/pipeline/status/{pipeline_id}")
+async def get_pipeline_status(pipeline_id: str):
+    """Get pipeline status (for future async implementation)"""
+    # This would be implemented with a job queue system like Celery
+    return {"message": "Pipeline status tracking not implemented yet"}
+
+@app.get("/pipeline/result/{pipeline_id}")
+async def get_pipeline_result(pipeline_id: str):
+    """Get pipeline result (for future async implementation)"""
+    # This would be implemented with a result storage system
+    return {"message": "Pipeline result retrieval not implemented yet"}
 
 if __name__ == "__main__":
     import uvicorn

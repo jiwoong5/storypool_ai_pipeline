@@ -22,10 +22,29 @@ class DreamShaperImageMaker(ImageMakerInterface):
         self.pipe = self.pipe.to(self.device)
 
     def generate_image(self, prompt: str) -> Image.Image:
-        with torch.no_grad():
-            image = self.pipe(
-                prompt,
-                negative_prompt="low quality, blurry",
-                num_inference_steps=25
-            ).images[0]
+        max_attempts = 3
+        attempt = 0
+
+        while attempt < max_attempts:
+            with torch.no_grad():
+                result = self.pipe(
+                    prompt,
+                    negative_prompt="low quality, blurry",
+                    num_inference_steps=25
+                )
+                image = result.images[0]
+
+                # NSFW 체크 (diffusers의 safety_checker가 결과에 NSFW 판단 여부 포함)
+                if hasattr(result, 'nsfw_content_detected'):
+                    nsfw_detected = result.nsfw_content_detected[0]
+                else:
+                    nsfw_detected = False  # safety_checker 없으면 false로 간주
+
+                if nsfw_detected:
+                    print(f"NSFW content detected on attempt {attempt + 1}, regenerating...")
+                    attempt += 1
+                else:
+                    return image
+
+        print("Max NSFW retries reached, returning last generated image.")
         return image

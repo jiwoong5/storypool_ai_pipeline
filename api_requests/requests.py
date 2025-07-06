@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Union
 from enum import Enum
+from constants.configs.configs import PipelineConfig
 
 # Enum 정의
 class OCRReaderType(str, Enum):
@@ -94,3 +95,10 @@ class ImageMakerTextRequest(BaseModel):
     prompt: str = Field(..., description="이미지 생성 프롬프트")
     image_maker_type: ImageMakerType = Field(default=ImageMakerType.DREAM_SHAPER, description="사용할 이미지 메이커 타입")
     num_images: Optional[int] = Field(default=1, description="생성할 이미지 개수")
+
+# Pipeline Request Models
+class PipelineRequest(BaseModel):
+    config: Optional[PipelineConfig] = None
+
+class PipelineTextRequest(PipelineRequest):
+    input_text: str

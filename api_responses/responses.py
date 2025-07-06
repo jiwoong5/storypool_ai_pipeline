@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
+from pipeline.pipeline_models import PipelineStatus
 
 # 공통 상태 코드
 class StatusCode(str, Enum):
@@ -55,6 +56,8 @@ class SceneInfo(BaseModel):
     mood: Optional[str] = Field(None, description="분위기")
     summary: Optional[str] = Field(None, description="장면 요약")
     dialogue_count: Optional[int] = Field(None, description="대화 수")
+    start_char: Optional[int] = Field(None, description="장면 시작 문자 인덱스")  
+    end_char: Optional[int] = Field(None, description="장면 끝 문자 인덱스")
 
 class SceneParserResponse(BaseResponse):
     scenes: List[SceneInfo] = Field(default_factory=list, description="분석된 장면 정보")
@@ -141,3 +144,13 @@ class TaskResponse(BaseModel):
     completed_at: Optional[datetime] = Field(None, description="작업 완료 시간")
     result: Optional[Dict[str, Any]] = Field(None, description="작업 결과")
     error: Optional[str] = Field(None, description="에러 메시지")
+
+class PipelineResponse(BaseModel):
+    pipeline_id: str
+    status: PipelineStatus
+    message: str
+    processing_time: float
+    output_directory: str
+    steps: List[Dict[str, Any]]
+    final_images: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None

@@ -50,9 +50,13 @@ class LlamaPromptMaker(PromptMakerInterface):
         {
         "scene_number": 2,
         "generated_prompt": "Warm storybook illustration of the same slim young adult woman with shoulder-length brown hair wearing the same cozy white t-shirt and distressed denim jeans, sitting on a blanket beside a middle-aged woman with silver hair in a flowing yellow sundress in a sunny park, children playing in the background, soft warm light, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
+        },
+        {
+        "scene_number": 3,
+        "generated_prompt": "Calm storybook illustration of the same slim young adult woman with shoulder-length brown hair wearing the same cozy white t-shirt and distressed denim jeans, walking beside her mother towards the park exit, both wearing happy expressions, gentle afternoon light casting a warm glow, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
         }
     ],
-    "total_prompts": 2
+    "total_prompts": 3
     }
 
     ## Please write prompts based on the following input

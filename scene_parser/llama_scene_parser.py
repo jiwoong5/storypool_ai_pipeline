@@ -218,10 +218,13 @@ class LlamaSceneParser(SceneParserInterface):
         2. For each scene, analyze and extract the characters, location, time, and mood.
         3. If there is dialogue, count the number of dialogue instances.
         4. Summarize each scene in one sentence.
+        5. Specify the character index range (0-based) where the scene appears in the full text. Provide:
+        - start_char: starting character index (inclusive)
+        - end_char: ending character index (exclusive)
 
         Criteria for dividing scenes:
         - Change of location (e.g., moving from home to the park)
-        - Passage of time (e.g., from morning to afternoon)  
+        - Passage of time (e.g., from morning to afternoon)
         - Change of main activity (e.g., walking → playing → eating)
         - Change in characters
 
@@ -238,7 +241,9 @@ class LlamaSceneParser(SceneParserInterface):
             "time": "Morning",
             "mood": "Calm",
             "summary": "I finished getting ready at home in the morning to go to the park.",
-            "dialogue_count": 0
+            "dialogue_count": 0,
+            "start_char": 0,
+            "end_char": 123
             }
         ],
         "total_scenes": 1,
