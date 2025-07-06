@@ -16,56 +16,19 @@ class PromptMakerManager:
         except json.JSONDecodeError as e:
             raise ValueError(f"JSON 파일 파싱 오류: {e}")
 
-    def extract_scene_info(self, scene_data: Dict[str, Any]) -> str:
-        result = []
-        for scene in scene_data["scenes"]:
-                formatted = f"""
-                - Scene Number: {scene.get('scene_number')}
-                - Scene Title: {scene.get('scene_title')}
-                - Characters: {', '.join(scene.get('characters', []))}
-                - Location: {scene.get('location')}
-                - Time: {scene.get('time') or 'None'}
-                - Mood: {scene.get('mood')}
-                - Summary: {scene.get('summary')}
-                - Dialogue Count: {scene.get('dialogue_count')}
-                """.strip()
-                result.append(formatted)
-        return result
+    def extract_scene_info(self, scene: Dict[str, Any]) -> str:
+        formatted = f"""
+        - Scene Number: {scene.get('scene_number')}
+        - Scene Title: {scene.get('scene_title')}
+        - Characters: {', '.join(scene.get('characters', []))}
+        - Location: {scene.get('location')}
+        - Time: {scene.get('time') or 'None'}
+        - Mood: {scene.get('mood')}
+        - Summary: {scene.get('summary')}
+        - Dialogue Count: {scene.get('dialogue_count')}
+        """.strip()
+        return formatted
     
-    def generate_prompts(self, scenes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """장면 데이터로부터 프롬프트들을 생성합니다."""
-        results = []
-        
-        for i, scene_data in enumerate(scenes, start=1):
-            try:
-                scene_text = self.extract_scene_info(scene_data)
-                scene_number = i
-                
-                # 기본 make_prompt 메소드 사용
-                prompt = self.prompt_maker.make_prompt(scene_text, scene_number)
-                result = {
-                    'scene_index': scene_number,
-                    'success': True,
-                    'message': 'Generated successfully',
-                    'generated_prompt': prompt,
-                    'metadata': {}
-                }
-                
-                results.append(result)
-                print(f"Scene {scene_number} 처리 완료")
-                
-            except Exception as e:
-                print(f"Scene {i} 처리 중 오류 발생: {str(e)}")
-                results.append({
-                    'scene_index': i,
-                    'success': False,
-                    'message': f'Error: {str(e)}',
-                    'generated_prompt': '',
-                    'metadata': {}
-                })
-        
-        return results
-
     def save_prompts_json(self, results: List[Dict[str, Any]], filename: str):
         """생성된 프롬프트들을 JSON 파일로 저장합니다."""
         try:
@@ -81,43 +44,28 @@ class PromptMakerManager:
             # JSON 파일 로드
             scenes_raw_data = self.load_scenes_json(input_path)
             
-            scenes_formatted_data = self.extract_scene_info(scenes_raw_data)
+            # scene_info (string) 리스트 준비
+            scene_texts = []
+            for scene in scenes_raw_data["scenes"]:
+                scene_info = self.extract_scene_info(scene)
+                scene_texts.append(scene_info)
 
-            # 프롬프트 생성
-            results = self.generate_prompts(scenes_formatted_data)
-            
+            # make_prompts 로 프롬프트 생성
+            results = self.prompt_maker.make_prompts(scene_texts)
+
             # 프롬프트 저장
-            self.save_prompts_json(results, output_path)
-            
-            scenes_data = list(range(1, len(results) + 1))
+            if save_json:
+                self.save_prompts_json(results, output_path)
+
             return {
-                'results': results,
-                'scenes_data': scenes_data
+                "prompts": results.get("prompts", []),
+                "message": "Character-consistent image generation prompts created successfully"
             }
-            
+        
         except Exception as e:
             print(f"처리 중 오류 발생: {str(e)}")
             return {
-                'results': [],
-                'scenes_data': {},
-                'error': str(e)
+                "prompts": [],
+                "message": f"Processing failed: {str(e)}"
             }
-
-        """통계 정보를 출력합니다."""
-        print("\n" + "="*50)
-        print("프롬프트 생성 통계")
-        print("="*50)
-        print(f"전체 장면 수: {statistics.get('total_count', 0)}")
-        print(f"성공한 장면 수: {statistics.get('success_count', 0)}")
-        print(f"실패한 장면 수: {statistics.get('failure_count', 0)}")
-        print(f"성공률: {statistics.get('success_rate', 0.0):.2%}")
-        
-        if 'average_quality_score' in statistics:
-            print(f"평균 품질 점수: {statistics['average_quality_score']:.3f}")
-        
-        if 'average_prompt_length' in statistics:
-            print(f"평균 프롬프트 길이: {statistics['average_prompt_length']:.1f}자")
-        
-        print("="*50)
-
-        
+            

@@ -458,29 +458,30 @@ async def process_prompt_maker_file(file: UploadFile = File(...), prompt_maker_t
     try:
         # 업로드된 파일 저장
         input_path = await save_uploaded_file(file, output_dir)
-        output_path = os.path.join(output_dir, "prompts.txt")
+        output_path = os.path.join(output_dir, "prompts.json")
         
         # 프롬프트 메이커 설정
         prompt_maker = PromptMakerSelector.get_prompt_maker(prompt_maker_type)
         prompt_manager = PromptMakerManager(prompt_maker)
         
+        processing_time = time.time() - start_time
+        
         # 프롬프트 생성 처리
         result = prompt_manager.process(input_path, output_path)
         
-        # 처리 시간 계산
-        processing_time = time.time() - start_time
-        
-        # 장면 데이터에서 정보 추출
-        prompts = result['prompts']
-        
+         # scene_number와 generated_prompt를 리스트로 분리
+        scene_numbers = [item["scene_number"] for item in result["prompts"]]
+        generated_prompts = [item["generated_prompt"] for item in result["prompts"]]
+
         return PromptMakerResponse(
             status="success",
-            message=f"Prompt generation completed successfully for {len(prompts)} scenes",
+            message=result["message"],
             processing_time=processing_time,
             output_directory=output_dir,
-            generated_prompt=prompts
+            scene_number=scene_numbers,
+            generated_prompt=generated_prompts
         )
-        
+                
     except Exception as e:
         err_resp, status_code = create_error_response(str(e), "PROMPT_MAKER_ERROR", 500)
         raise HTTPException(status_code=status_code, detail=err_resp.dict())

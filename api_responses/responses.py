@@ -14,14 +14,9 @@ class StatusCode(str, Enum):
 class BaseResponse(BaseModel):
     status: StatusCode = Field(..., description="처리 상태")
     message: str = Field(..., description="응답 메시지")
-    timestamp: datetime = Field(default_factory=datetime.now, description="응답 시간")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="응답 시간")
     processing_time: Optional[float] = Field(None, description="처리 시간 (초)")
     output_directory: Optional[str] = Field(None, description="결과 출력 디렉토리 경로")
-
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 # OCR 응답
 class OCRResponse(BaseResponse):
@@ -69,8 +64,8 @@ class SceneParserResponse(BaseResponse):
 
 # Prompt Maker 응답
 class PromptMakerResponse(BaseResponse):
-    scene_number: int = Field(..., description="장면 번호")
-    generated_prompt: Optional[str] = Field(None, description="생성된 프롬프트")
+    scene_number: List[int] = Field(..., description="장면 번호 리스트")
+    generated_prompt: List[str] = Field(..., description="생성된 프롬프트 리스트")
 
 # Emotion Classifier 응답
 class EmotionScore(BaseModel):
