@@ -36,6 +36,20 @@ graph TD
 - pipeline_crud.py: DB 접근 및 저장 로직 담당
 - pipeline_models.py: 테이블 스키마 정의 (CRUD의 대상)
 
+### ai_processing_pipeline 에서 흐름 개요
+```
+1. DB 세션 생성
+2. 파이프라인 실행 정보(PipelineExecution) 저장 → RUNNING 상태로 초기화
+3. 각 단계 실행 시, 단계별 결과(PipelineStep) 저장
+4. 모든 단계 완료 후 → 파이프라인 실행 상태 업데이트 (COMPLETED/FAILED 등)
+5. 에러 발생 시 DB 롤백
+6. 마지막에 세션 종료
+```
+- DB 세션(session): 데이터베이스에 쿼리를 보내고 결과를 받기 위해 사용하는 작업 단위 객체
+- Session 객체를 통해 INSERT, SELECT, UPDATE, DELETE 같은 작업
+- 작업 완료 후 commit(), 오류 발생 시 rollback() 으로 트랜잭션을 관리
+- 작업이 끝나면 반드시 session.close()를 통해 자원을 해제
+
 ### 저장 항목
 - Execution 단위로 실행 시작/종료 시각, 상태, 구성 정보 등 기록
 - Step 단위로 실행 상태, 처리 시간, 입출력 데이터, 에러 메시지 등 기록
