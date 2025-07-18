@@ -21,11 +21,14 @@
 - DB CRUD 로직 정의
 - pipeline_models에 의존하여 ORM 모델에 대한 조작 수행
 
+cf) pipeline_result.py에서 정의한 DTO (PipelineResult, StepResult)를 참고하여 DB 스키마 구조를 설계. 파이프라인 처리 결과와 DB 모델 간의 자연스러운 매핑을 위해 구조와 필드를 유사하게 맞춤
+
 ### 실행 흐름 및 의존 구조
 
 ```mermaid
 graph TD
   A[ai_processing_pipeline] --> B[pipeline_crud.py]
+  A --> D[pipeline_result.py]
   B --> C[pipeline_models.py]
 ```
 
