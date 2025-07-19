@@ -4,13 +4,23 @@ class TranslatorManager:
     def __init__(self, translator: TranslatorInterface):
         self.translator = translator
 
-    def process(self, input_path: str, output_path: str):
-        # 파일 읽기
+    def process(self, input_text: str) -> str:
+        """
+        Translate the given text string and return the result.
+        """
+        translated = self.translator.translate_text(input_text)
+        return translated
+
+    def process_from_path(self, input_path: str, output_path: str) -> str:
+        """
+        Read text from file, translate it, and write result to output file.
+        """
         with open(input_path, 'r', encoding='utf-8') as f:
             text = f.read()
-        # 번역
-        translated = self.translator.translate_text(text)
-        # 파일 쓰기
+
+        translated = self.process(text)
+
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(translated)
+
         return translated

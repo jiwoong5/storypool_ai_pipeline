@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
-from pipeline.pipeline_models import PipelineStatus
+from pipeline.pipeline_result import PipelineStatus
 
 # 공통 상태 코드
 class StatusCode(str, Enum):
