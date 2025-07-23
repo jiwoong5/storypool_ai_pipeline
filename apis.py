@@ -101,98 +101,6 @@ async def health_check():
         }
     )
 
-# OCR Endpoints
-@app.post("/ocr/process", response_model=OCRResponse)
-async def process_ocr_file(file: UploadFile = File(...), reader_type: str = "easyocr"):
-    start_time = time.time()
-    output_dir = create_output_directory()
-    
-    try:
-        image_path = await save_uploaded_file(file, output_dir)
-        ocr_model = OCRSelector.get_reader(reader_type)
-        ocr_manager = OCRManager(ocr_model)
-        
-        output_path = os.path.join(output_dir, "ocr_result.txt")
-        result = ocr_manager.process_from_path(image_path, output_path)
-        
-        extracted_text = ""
-        if os.path.exists(output_path):
-            with open(output_path, 'r', encoding='utf-8') as f:
-                extracted_text = f.read()
-        
-        processing_time = time.time() - start_time
-        
-        return OCRResponse(
-            status=StatusCode.SUCCESS,
-            message="OCR processing completed successfully",
-            processing_time=processing_time,
-            output_directory=output_dir,
-            extracted_text=extracted_text,
-            confidence_score=0.95,
-            detected_languages=["en"]
-        )
-        
-    except Exception as e:
-        err_resp, status_code = create_error_response(str(e), "OCR_ERROR", 500)
-        raise HTTPException(status_code=status_code, detail=err_resp.dict())
-
-@app.post("/ocr/batch", response_model=OCRBatchResponse)
-async def process_ocr_batch(files: List[UploadFile] = File(...), reader_type: str = "easyocr"):
-    start_time = time.time()
-    output_dir = create_output_directory()
-    
-    try:
-        results = []
-        successful_count = 0
-        failed_count = 0
-        
-        ocr_model = OCRSelector.get_reader(reader_type)
-        ocr_manager = OCRManager(ocr_model)
-        
-        for i, file in enumerate(files):
-            try:
-                image_path = await save_uploaded_file(file, output_dir)
-                output_path = os.path.join(output_dir, f"ocr_result_{i}.txt")
-                
-                ocr_manager.process_from_path(image_path, output_path)
-                
-                extracted_text = ""
-                if os.path.exists(output_path):
-                    with open(output_path, 'r', encoding='utf-8') as f:
-                        extracted_text = f.read()
-                
-                results.append({
-                    "file_name": file.filename,
-                    "extracted_text": extracted_text,
-                    "status": "success"
-                })
-                successful_count += 1
-                
-            except Exception as e:
-                results.append({
-                    "file_name": file.filename,
-                    "error": str(e),
-                    "status": "failed"
-                })
-                failed_count += 1
-        
-        processing_time = time.time() - start_time
-        
-        return OCRBatchResponse(
-            status=StatusCode.SUCCESS if failed_count == 0 else StatusCode.PARTIAL_SUCCESS,
-            message=f"Batch OCR processing completed. {successful_count} successful, {failed_count} failed",
-            processing_time=processing_time,
-            output_directory=output_dir,
-            results=results,
-            total_processed=len(files),
-            successful_count=successful_count,
-            failed_count=failed_count
-        )
-        
-    except Exception as e:
-        err_resp, status_code = create_error_response(str(e), "OCR_ERROR", 500)
-        raise HTTPException(status_code=status_code, detail=err_resp.dict())
-
 # Translator Endpoints
 @app.post("/translator/process", response_model=TranslatorResponse)
 async def process_translator_file(file: UploadFile = File(...), translator_type: str = "marian"):
@@ -205,7 +113,7 @@ async def process_translator_file(file: UploadFile = File(...), translator_type:
         
         translator = TranslatorSelector.get_translator(translator_type)
         translator_manager = TranslatorManager(translator)
-        translator_manager.process(input_path, output_path)
+        translator_manager.process_from_path(input_path, output_path)
         
         # Read original and translated text
         original_text = ""
@@ -323,7 +231,7 @@ async def generate_story_from_text(request: StoryWriterTextRequest):
         
         story_writer = StoryWriterSelector.get_writer(request.writer_type.value)
         story_manager = StoryWriterManager(story_writer)
-        story_manager.process(input_path, output_path)
+        story_manager.process_from(input_path, output_path)
         
         generated_story = ""
         if os.path.exists(output_path):
@@ -381,9 +289,7 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
                 scenes=parsing_result.scenes,
                 total_scenes=parsing_result.total_scenes,
                 main_characters=parsing_result.main_characters,
-                locations=parsing_result.locations,
-                start_char=parsing_result.start_char,
-                end_char=parsing_result.end_char
+                locations=parsing_result.locations
             )
         else:
             # parsing_result가 None이거나 예상과 다른 형태인 경우
@@ -395,9 +301,7 @@ async def process_scene_parser_file(file: UploadFile = File(...), parser_type: s
                 scenes=[],
                 total_scenes=0,
                 main_characters=[],
-                locations=[],
-                start_char=0,
-                end_char=0
+                locations=[]
             )
         
         return response
@@ -694,7 +598,7 @@ async def process_image_maker_file(file: UploadFile = File(...), image_maker_typ
         
         image_maker = ImageMakerSelector.get_image_maker(image_maker_type)
         image_manager = ImageMakerManager(image_maker)
-        image_manager.process(input_path, image_output_path)
+        image_manager.process_from_path(input_path, image_output_path)
         
         processing_time = time.time() - start_time
         
@@ -777,94 +681,6 @@ async def generate_image_from_text(request: ImageMakerTextRequest):
     except Exception as e:
         err_resp, status_code = create_error_response(str(e), "IMAGE_MAKER_ERROR", 500)
         raise HTTPException(status_code=status_code, detail=err_resp.dict())
-
-# FastAPI Pipeline Endpoints
-@app.post("/pipeline/process", response_model=PipelineResponse)
-async def run_pipeline_from_file(
-    file: UploadFile = File(...),
-    config: Optional[str] = None
-):
-    """Run complete AI processing pipeline from uploaded file"""
-    try:
-        # Parse config if provided
-        pipeline_config = PipelineConfig()
-        if config:
-            config_dict = json.loads(config)
-            pipeline_config = PipelineConfig(**config_dict)
-        
-        # Create and run pipeline
-        pipeline = AIProcessingPipeline(pipeline_config)
-        result = await pipeline.run_from_file(file)
-        
-        # Convert to response format
-        steps_dict = []
-        for step in result.steps:
-            steps_dict.append({
-                "step_name": step.step_name,
-                "status": step.status,
-                "processing_time": step.processing_time,
-                "error_message": step.error_message,
-                "output_files": step.output_files or []
-            })
-        
-        return PipelineResponse(
-            pipeline_id=result.pipeline_id,
-            status=result.status,
-            message=f"Pipeline {result.status}",
-            processing_time=result.total_processing_time,
-            output_directory=result.output_directory,
-            steps=steps_dict,
-            final_images=result.final_images,
-            metadata=result.metadata
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
-
-@app.post("/pipeline/text", response_model=PipelineResponse)
-async def run_pipeline_from_text(request: PipelineTextRequest):
-    """Run pipeline from text input (skip OCR)"""
-    try:
-        # Create and run pipeline
-        pipeline = AIProcessingPipeline(request.config)
-        result = await pipeline.run_from_text(request.input_text)
-        
-        # Convert to response format
-        steps_dict = []
-        for step in result.steps:
-            steps_dict.append({
-                "step_name": step.step_name,
-                "status": step.status,
-                "processing_time": step.processing_time,
-                "error_message": step.error_message,
-                "output_files": step.output_files or []
-            })
-        
-        return PipelineResponse(
-            pipeline_id=result.pipeline_id,
-            status=result.status,
-            message=f"Pipeline {result.status}",
-            processing_time=result.total_processing_time,
-            output_directory=result.output_directory,
-            steps=steps_dict,
-            final_images=result.final_images,
-            metadata=result.metadata
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pipeline execution failed: {str(e)}")
-
-@app.get("/pipeline/status/{pipeline_id}")
-async def get_pipeline_status(pipeline_id: str):
-    """Get pipeline status (for future async implementation)"""
-    # This would be implemented with a job queue system like Celery
-    return {"message": "Pipeline status tracking not implemented yet"}
-
-@app.get("/pipeline/result/{pipeline_id}")
-async def get_pipeline_result(pipeline_id: str):
-    """Get pipeline result (for future async implementation)"""
-    # This would be implemented with a result storage system
-    return {"message": "Pipeline result retrieval not implemented yet"}
 
 if __name__ == "__main__":
     import uvicorn

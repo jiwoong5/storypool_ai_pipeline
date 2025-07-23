@@ -15,65 +15,54 @@ class LlamaPromptMaker(PromptMakerInterface):
         self.json_maker = JsonMaker()
 
     def _get_main_instruction(self) -> str:
-        return """You are an expert prompt engineer specializing in creating high-quality image generation prompts with strong emphasis on character consistency.
+        return """You are an expert prompt engineer creating detailed, high-quality image generation prompts that strictly maintain character consistency across all scenes.
 
-    ## Task:
-    Transform provided scene data into a detailed, high-quality image generation prompt that **strictly maintains character consistency** across all scenes.
+        ## Task:
+        Transform scene data into storybook-style prompts emphasizing a consistent character (age, body, hair, clothing, expression) without using names.
 
-    ## Input Format (Example):
-    - Scene Number: 1
-    - Scene Title: Getting ready at home
-    - Characters: ["young adult woman"]
-    - Location: Bedroom
-    - Time: Morning
-    - Mood: Calm
-    - Summary: A young woman is sitting on her bed, preparing for the day in soft morning light.
-    - Dialogue Count: 0
+        ## Guidelines:
+        - Maintain the same character appearance and outfit in every scene; no changes unless explicitly instructed.
+        - Use descriptive phrases like “slim young woman with shoulder-length brown hair”.
+        - Emphasize a magical, dreamy, emotional tone with fairytale keywords (enchanted, whimsical, pastel, gentle, glowing).
+        - Include classic children's illustration styles: watercolor, gouache, pencil sketch.
+        - Focus on character expression, mood, interaction, and atmosphere.
+        - Prompts must be 150–300 characters.
+        - Output only valid JSON in this format — no explanations or extra text.
 
-    ## Guidelines:
-    - ALWAYS describe the main character(s) using detailed, consistent physical features (age, build, hair, clothing, expression, posture).
-    - NEVER use character names — use descriptive phrases (e.g., "slim young adult woman with shoulder-length brown hair").
-    - ALL SCENES must describe the same main character(s) consistently in terms of appearance.
-    - Focus on character appearance, pose, interaction, and prominence in the scene.
-    - Include clear composition, lighting, mood, and style references.
-    - Include technical quality keywords (e.g., ultra-detailed, 8K resolution, cinematic lighting).
-    - Each prompt must be 150-300 characters long.
-    - Response MUST be a valid JSON object exactly as shown below — **NO reasoning, no explanations, no extra text**.
-
-    ## Response Format (Example):
-    {
-    "prompts": [
+        ## Response Format (Example):
         {
-        "scene_number": 1,
-        "generated_prompt": "Soft storybook illustration of a slim young adult woman with shoulder-length brown hair wearing a cozy white t-shirt and distressed denim jeans, sitting peacefully on a bed against the wall in a warmly sunlit bedroom, natural morning light filtering softly through the window, gentle expression, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
-        },
-        {
-        "scene_number": 2,
-        "generated_prompt": "Warm storybook illustration of the same slim young adult woman with shoulder-length brown hair wearing the same cozy white t-shirt and distressed denim jeans, sitting on a blanket beside a middle-aged woman with silver hair in a flowing yellow sundress in a sunny park, children playing in the background, soft warm light, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
-        },
-        {
-        "scene_number": 3,
-        "generated_prompt": "Calm storybook illustration of the same slim young adult woman with shoulder-length brown hair wearing the same cozy white t-shirt and distressed denim jeans, walking beside her mother towards the park exit, both wearing happy expressions, gentle afternoon light casting a warm glow, watercolor texture, soft pastel colors, warm tones, ultra-detailed"
+        "prompts": [
+            {
+            "scene_number": 1,
+            "generated_prompt": "Dreamy storybook illustration of a delicate young woman with flowing brown hair wearing a soft linen nightdress, gazing out a misty window in a cozy attic room, morning light gently pouring through enchanted curtains, watercolor texture, pastel hues, magical mood"
+            },
+            {
+            "scene_number": 2,
+            "generated_prompt": "Whimsical storybook illustration of the same gentle young woman, now changed out of her nightdress into a pale cotton blouse and soft skirt, sitting beneath a blooming cherry tree beside an older woman with silvery hair and warm eyes, petals drifting in the breeze, soft glowing sunlight, watercolor style, pastel tones"
+            },
+            {
+            "scene_number": 3,
+            "generated_prompt": "Fairytale-style storybook illustration of the same young woman, still dressed in her pale cotton blouse and soft skirt, walking hand-in-hand with her mother through a sun-dappled forest path, both smiling softly as golden light filters through the trees, watercolor texture, enchanted atmosphere, pastel colors, gentle mood"
+            }
+        ],
+        "total_prompts": 3
         }
-    ],
-    "total_prompts": 3
-    }
 
-    ## Please write prompts based on the following input
-    {scene_data}
+        ## Please write prompts based on the following input
+        {scene_data}
     """
 
     
     def _get_caution(self) -> str:
         return """CRITICAL CAUTIONS:
-    1. ALWAYS respond in valid JSON format exactly as specified — no additional text or reasoning.
-    2. Characters must be described consistently across ALL scenes: age, build, hair, clothing, expression, posture.
-    3. DO NOT use character names — use descriptive phrases like "slim young adult woman with shoulder-length brown hair".
-    4. Prompts must be 150-300 characters long.
-    5. Include artistic style, composition, lighting, and technical quality keywords (e.g., ultra-detailed, 8K resolution).
-    6. Ensure character positioning, interaction, and prominence are clear.
-    7. Environmental elements must support and not overshadow the characters.
-    8. DO NOT change the character’s physical description between scenes — this is critical."""
+        1. ALWAYS respond in valid JSON format exactly as specified — no extra text or reasoning.
+        2. Describe characters consistently across ALL scenes: age, build, hair, clothing, expression, posture.
+        3. DO NOT change the character’s physical description or outfit between scenes — consistency is essential.
+        4. DO NOT use character names — use descriptive phrases like "slim young adult woman with shoulder-length brown hair".
+        5. Include artistic style, composition, lighting, and relevant keywords.
+        6. Ensure clear character positioning, interaction, and prominence.
+        7. Environmental elements must support, not overshadow, the characters.
+"""
 
     def get_error_response(self, error_message: str, scene_index: int = None) -> dict:
             """

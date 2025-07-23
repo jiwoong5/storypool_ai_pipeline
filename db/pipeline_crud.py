@@ -69,35 +69,32 @@ class PipelineCRUD:
             return False
     
     # Pipeline Step CRUD
-    def create_pipeline_step(self, step_id: str, pipeline_id: str, step_name: str, step_order: int, 
-                            status: str, processing_time: float = None, input_data: str = None, 
-                            output_data: str = None, error_message: str = None) -> PipelineStep:
+    def create_pipeline_step(self, step_id: str, step_order: int, status: str,
+                            processing_time: float = None, error_message: str = None) -> PipelineStep:
         """Create a new pipeline step record"""
         with self.get_session() as session:
             step = PipelineStep(
                 id=step_id,
-                pipeline_id=pipeline_id,
-                step_name=step_name,
                 step_order=step_order,
                 status=status,
                 processing_time=processing_time,
-                input_data=input_data,
-                output_data=output_data,
                 error_message=error_message
             )
             session.add(step)
             session.commit()
             return step
+
     
     def get_pipeline_step(self, step_id: str) -> Optional[PipelineStep]:
         """Get pipeline step by ID"""
         with self.get_session() as session:
             return session.query(PipelineStep).filter_by(id=step_id).first()
     
-    def get_pipeline_steps(self, pipeline_id: str) -> List[PipelineStep]:
-        """Get all steps for a pipeline"""
+    def get_pipeline_steps(self) -> List[PipelineStep]:
+        """Get all pipeline steps (global)"""
         with self.get_session() as session:
-            return session.query(PipelineStep).filter_by(pipeline_id=pipeline_id).order_by(PipelineStep.step_order).all()
+            return session.query(PipelineStep).order_by(PipelineStep.step_order).all()
+
     
     def update_pipeline_step(self, step_id: str, status: str, processing_time: float = None, 
                             output_data: str = None, error_message: str = None) -> bool:
@@ -119,38 +116,42 @@ class PipelineCRUD:
     def delete_pipeline_step(self, step_id: str) -> bool:
         """Delete pipeline step and related files"""
         with self.get_session() as session:
-            # Delete related files
-            session.query(PipelineFile).filter_by(step_id=step_id).delete()
-            # Delete step
+            # Related files는 step_id 기반 삭제가 어려우므로 step_order 기반 로직이 필요할 수 있음
             step = session.query(PipelineStep).filter_by(id=step_id).first()
             if step:
+                # Related files 제거 (step_order 사용)
+                session.query(PipelineFile).filter_by(step_order=step.step_order).delete()
                 session.delete(step)
                 session.commit()
                 return True
             return False
+
     
     # Pipeline File CRUD
-    def create_pipeline_file(self, file_id: str, pipeline_id: str, step_id: str, file_name: str, 
-                            file_type: str, file_content: bytes = None, file_text: str = None) -> PipelineFile:
+    def create_pipeline_file(self, file_id: str, pipeline_id: str, step_order: int,
+                            file_content: bytes = None, file_text: str = None) -> PipelineFile:
         """Create a new pipeline file record"""
         with self.get_session() as session:
             file_record = PipelineFile(
                 id=file_id,
                 pipeline_id=pipeline_id,
-                step_id=step_id,
-                file_name=file_name,
-                file_type=file_type,
+                step_order=step_order,
                 file_content=file_content,
                 file_text=file_text
             )
             session.add(file_record)
             session.commit()
             return file_record
+
     
-    def get_pipeline_file(self, file_id: str) -> Optional[PipelineFile]:
-        """Get pipeline file by ID"""
+    def get_pipeline_files(self, pipeline_id: str, step_order: int = None) -> List[PipelineFile]:
+        """Get files for a pipeline, optionally filtered by step_order"""
         with self.get_session() as session:
-            return session.query(PipelineFile).filter_by(id=file_id).first()
+            query = session.query(PipelineFile).filter_by(pipeline_id=pipeline_id)
+            if step_order is not None:
+                query = query.filter_by(step_order=step_order)
+            return query.order_by(PipelineFile.created_at).all()
+
     
     def get_file_content(self, file_id: str) -> Optional[bytes]:
         """Get file content by file ID"""
@@ -219,10 +220,10 @@ class PipelineCRUD:
             execution = session.query(PipelineExecution).filter_by(pipeline_id=pipeline_id).first()
             if not execution:
                 return None
-            
-            steps = session.query(PipelineStep).filter_by(pipeline_id=pipeline_id).order_by(PipelineStep.step_order).all()
+
+            steps = session.query(PipelineStep).order_by(PipelineStep.step_order).all()
             files = session.query(PipelineFile).filter_by(pipeline_id=pipeline_id).all()
-            
+
             return {
                 "pipeline_id": pipeline_id,
                 "status": execution.status,
@@ -232,17 +233,16 @@ class PipelineCRUD:
                 "error_message": execution.error_message,
                 "steps_count": len(steps),
                 "files_count": len(files),
-                "image_count": len([f for f in files if f.file_type == "image"]),
                 "steps": [
                     {
-                        "step_name": step.step_name,
+                        "step_order": step.step_order,
                         "status": step.status,
                         "processing_time": step.processing_time,
                         "error_message": step.error_message
-                    }
-                    for step in steps
+                    } for step in steps
                 ]
             }
+
     
     def cleanup_old_pipelines(self, days_old: int = 30) -> int:
         """Clean up pipelines older than specified days"""

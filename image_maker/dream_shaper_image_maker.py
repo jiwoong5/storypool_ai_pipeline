@@ -29,7 +29,7 @@ class DreamShaperImageMaker(ImageMakerInterface):
             with torch.no_grad():
                 result = self.pipe(
                     prompt,
-                    negative_prompt="low quality, blurry",
+                    negative_prompt="low quality, blurry, nsfw",
                     num_inference_steps=25
                 )
                 image = result.images[0]

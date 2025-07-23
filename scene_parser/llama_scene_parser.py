@@ -217,10 +217,7 @@ class LlamaSceneParser(SceneParserInterface):
         1. First, read the entire story and identify the scene transition points.
         2. For each scene, analyze and extract the characters, location, time, and mood.
         3. If there is dialogue, count the number of dialogue instances.
-        4. Summarize each scene in one sentence.
-        5. Specify the character index range (0-based) where the scene appears in the full text. Provide:
-        - start_char: starting character index (inclusive)
-        - end_char: ending character index (exclusive)
+        4. sum of summary must include full story.
 
         Criteria for dividing scenes:
         - Change of location (e.g., moving from home to the park)
@@ -230,25 +227,51 @@ class LlamaSceneParser(SceneParserInterface):
 
         IMPORTANT: Return ONLY valid JSON format without any additional text or explanation.
 
-        Example Output Format:
+        Example Input:
+        
+        Emma woke up early in the morning. She looked out the window and sighed—it was a sunny day, but she felt strangely down.
+
+        After having a quick breakfast, she grabbed her sketchbook and walked to the nearby park. Children were playing, dogs were running, and couples were talking on benches.
+
+        She found a quiet bench under a tree and started drawing. A little girl came up to her and asked, “What are you drawing?” Emma smiled and showed her the sketch.
+
+        Expected Output Format:
         {
         "scenes": [
             {
             "scene_number": 1,
             "scene_title": "Getting ready at home",
-            "characters": ["Narrator"],
+            "characters": ["Emma"],
             "location": "Home",
             "time": "Morning",
-            "mood": "Calm",
-            "summary": "I finished getting ready at home in the morning to go to the park.",
-            "dialogue_count": 0,
-            "start_char": 0,
-            "end_char": 123
+            "mood": "Melancholic",
+            "summary": "Emma woke up early in the morning. She looked out the window and sighed—it was a sunny day, but she felt strangely down.",
+            "dialogue_count": 0
+            },
+            {
+            "scene_number": 2,
+            "scene_title": "Just arrived at the park",
+            "characters": ["Emma", "dog", "couple", "children"],
+            "location": "Park",
+            "time": "Late Morning",
+            "mood": "Peaceful",
+            "summary": "After having a quick breakfast, she grabbed her sketchbook and walked to the nearby park. Children were playing, dogs were running, and couples were talking on benches.",
+            "dialogue_count": 0
+            },
+            {
+            "scene_number": 3,
+            "scene_title": "Sketching at the park",
+            "characters": ["Emma", "Little girl"],
+            "location": "Park",
+            "time": "Late Morning",
+            "mood": "Peaceful",
+            "summary": "She found a quiet bench under a tree and started drawing. A little girl came up to her and asked, “What are you drawing?” Emma smiled and showed her the sketch.",
+            "dialogue_count": 1
             }
         ],
-        "total_scenes": 1,
-        "main_characters": ["Narrator"],
-        "locations": ["Home"]
+        "total_scenes": 2,
+        "main_characters": ["Emma"],
+        "locations": ["Home", "Park"]
         }
 
         ---
@@ -309,3 +332,4 @@ class LlamaSceneParser(SceneParserInterface):
         caution = "Return only valid JSON format. Do not include any explanatory text before or after the JSON."
         instruction = self.llm_helper.build_instruction(main_instruction, text_content, caution)
         return self.llm_helper.retry_and_extract(instruction, description="장면 분석")
+       

@@ -21,13 +21,9 @@ class PipelineStep(Base):
     __tablename__ = "pipeline_steps"
     
     id = Column(String(50), primary_key=True)
-    pipeline_id = Column(String(50), nullable=False)
-    step_name = Column(String(50), nullable=False)
     step_order = Column(Integer, nullable=False)
     status = Column(String(20), nullable=False)
     processing_time = Column(Float)
-    input_data = Column(Text)
-    output_data = Column(Text)
     error_message = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -36,9 +32,7 @@ class PipelineFile(Base):
     
     id = Column(String(50), primary_key=True)
     pipeline_id = Column(String(50), nullable=False)
-    step_id = Column(String(50))
-    file_name = Column(String(255), nullable=False)
-    file_type = Column(String(50))  # 'input', 'output', 'image'
+    step_order = Column(Integer, nullable=False)
     file_content = Column(LargeBinary)  # For binary files
     file_text = Column(Text)  # For text files
     created_at = Column(DateTime, default=datetime.utcnow)
