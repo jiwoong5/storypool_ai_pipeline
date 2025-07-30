@@ -201,7 +201,8 @@ class LlamaSceneParser(SceneParserInterface):
         )
         self.post_processor = ScenePostProcessor()
 
-    def parse(self, text_content: str) -> SceneParserResponse:
+    def parse(self, text_content: str):
+
         """
         텍스트를 분석하여 장면별로 파싱하고 구조화된 결과를 반환
         

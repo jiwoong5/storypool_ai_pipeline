@@ -54,9 +54,9 @@ def story_writer(input_text:str):
 
 # scene_parser 로직
 def scene_parser(input_text:str):
-    scene_parser = SceneParserSelector.get_parser("llama")
-    scene_parser_manager = SceneParserManager(scene_parser)
-    return scene_parser_manager.process(input_text)
+    parser = SceneParserSelector.get_parser(parser_type="llama")
+    manager = SceneParserManager(parser)
+    return manager.process(input_text)
 
 #step 정의
 def step(task_data, logic):

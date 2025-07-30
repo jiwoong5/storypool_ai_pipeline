@@ -15,7 +15,7 @@ class SceneParserManager:
 
     def process(self, input_text: str):
         scene_response = self.parser.parse(input_text)
-        return scene_response
+        return json.dumps(scene_response)
 
     def process_from_path(self, input_file: str, output_file: str):
             text = self.load_text(input_file)
