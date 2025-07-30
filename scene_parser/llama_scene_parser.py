@@ -283,10 +283,7 @@ class LlamaSceneParser(SceneParserInterface):
         try:
             instruction = self.llm_helper.build_instruction(main_instruction, text_content, caution)
             # LlamaHelper의 retry_and_get_json이 내부적으로 JsonMaker를 사용하여 JSON 처리
-            raw_data = self.llm_helper.retry_and_get_json(instruction, description="장면 분석")
-            # ScenePostProcessor는 이제 비즈니스 로직(정규화, 검증 등)만 처리
-            processed_result = self.post_processor.process_response(raw_data)
-            return processed_result
+            return self.llm_helper.retry_and_get_json(instruction, description="장면 분석")
             
         except Exception as e:
             print(f"장면 파싱 중 오류 발생: {e}")

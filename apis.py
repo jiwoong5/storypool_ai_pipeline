@@ -9,6 +9,7 @@ from typing import Optional, List
 import json
 import shutil
 from constants.configs.configs import PipelineConfig
+from dotenv import load_dotenv
 
 # Import request and response models
 from api_requests.requests import (
@@ -48,6 +49,9 @@ app = FastAPI(
     description="API for OCR, Translation, Story Writing, Scene Parsing, Prompt Making, Emotion Classification, and Image Generation",
     version="1.0.0"
 )
+
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Utility function to create output directory
 def create_output_directory(base_path: str = "outputs") -> str:
