@@ -38,7 +38,30 @@ class PromptMakerManager:
         except Exception as e:
             print(f"JSON 파일 저장 중 오류 발생: {str(e)}")
 
-    def process(self, input_path: str, output_path: str, save_json: bool = False) -> Dict[str, Any]:
+    def process(self, json_string: str):
+        """JSON 문자열을 처리하여 프롬프트를 생성합니다."""
+        try:
+            # 문자열로부터 JSON 파싱
+            scenes_raw_data = json.loads(json_string)
+
+            # scene_info (string) 리스트 준비
+            scene_texts = []
+            for scene in scenes_raw_data["scenes"]:
+                scene_info = self.extract_scene_info(scene)
+                scene_texts.append(scene_info)
+
+            # make_prompts 로 프롬프트 생성
+            results = self.prompt_maker.make_prompts(scene_texts)
+            return json.dumps(results.get("prompts", []))
+
+        except Exception as e:
+            print(f"[에러] 처리 중 예외 발생: {str(e)}")
+            return {
+                "prompts": [],
+                "message": f"Processing failed: {str(e)}"
+            }
+        
+    def process_from_path(self, input_path: str, output_path: str, save_json: bool = False) -> Dict[str, Any]:
         """장면 JSON 파일을 처리하여 프롬프트를 생성합니다."""
         try:
             # JSON 파일 로드

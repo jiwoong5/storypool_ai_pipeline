@@ -58,6 +58,11 @@ def scene_parser(input_text:str):
     manager = SceneParserManager(parser)
     return manager.process(input_text)
 
+def prompt_maker(input_text:str):
+    prompt_maker = PromptMakerSelector.get_prompt_maker("llama")
+    manager = PromptMakerManager(prompt_maker)
+    return manager.process(input_text)
+
 #step 정의
 def step(task_data, logic):
     payload = task_data['payload']
@@ -98,6 +103,7 @@ step_map = {
     1: ko_en_translator,
     2: story_writer,
     3: scene_parser,
+    4: prompt_maker,
 }
 
 # 워커 루프
