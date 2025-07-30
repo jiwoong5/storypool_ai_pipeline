@@ -1,6 +1,11 @@
 import redis
 import time
 import uuid
+from functools import partial
+
+from dotenv import load_dotenv
+import os
+from db.pipeline_crud import PipelineCRUD
 
 from translator.translator_selector import TranslatorSelector
 from translator.translator_manager import TranslatorManager
@@ -17,6 +22,10 @@ from image_maker.image_maker_manager import ImageMakerManager
 
 # Redis 연결
 r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+
+# Db url 가져오기
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # 큐 관련 처리
 def enqueue_next_step(current_task_data, result):
@@ -63,6 +72,12 @@ def prompt_maker(input_text:str):
     manager = PromptMakerManager(prompt_maker)
     return manager.process(input_text)
 
+def image_maker(input_text:str, crud):
+    image_maker = ImageMakerSelector.get_image_maker('dream_shaper')
+    manager = ImageMakerManager(image_maker)
+    generated_image = manager.process("image_maker/input.txt", "image_maker/")
+    return "sucess"
+
 #step 정의
 def step(task_data, logic):
     payload = task_data['payload']
@@ -98,16 +113,23 @@ def step(task_data, logic):
     except requests.RequestException as e:
         print(f"웹서버 종료 알림 실패: {e}")'''
 
+# db crud 객체 생성
+crud = PipelineCRUD(DATABASE_URL)
+image_maker_with_db = partial(image_maker, crud=crud)
+
 # Step 매핑
 step_map = {
     1: ko_en_translator,
     2: story_writer,
     3: scene_parser,
     4: prompt_maker,
+    5: image_maker_with_db,
 }
 
 # 워커 루프
 print("워커 시작됨. 작업 대기 중...")
+
+
 
 while True:
     try:
