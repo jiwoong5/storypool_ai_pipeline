@@ -1,30 +1,42 @@
 from typing import List
 from image_maker.image_maker_interface import ImageMakerInterface
 from PIL import Image
-import json, os
+import json, os, io
 
 class ImageMakerManager:
     def __init__(self, image_maker: ImageMakerInterface):
         self.image_maker = image_maker
 
-    def process(self, prompts: List[str]) -> List[Image.Image]:
+    @staticmethod
+    def image_to_bytes(image: Image.Image, format: str = "PNG") -> bytes:
+        with io.BytesIO() as output:
+            image.save(output, format=format)
+            return output.getvalue()
+
+    def process(self, prompts: str) -> List[bytes]:
         """
-        Generate images from a list of prompt strings.
+        Generate images from a list of prompt strings and return as byte data.
+
+        Args:
+            prompts: A JSON-serialized list of dicts, each with a 'generated_prompt' field.
 
         Returns:
-            List of PIL Image objects.
+            List of image bytes (e.g., PNG format).
         """
         results = []
+
+        prompts = json.loads(prompts)
+        prompts = [item['generated_prompt'] for item in prompts]
 
         for i, prompt in enumerate(prompts, 1):
             try:
                 print(f"\n[{i}/{len(prompts)}] Generating image for prompt: {prompt[:60]}...")
                 image = self.image_maker.generate_image(prompt)
-                results.append(image)
+                image_bytes = self.image_to_bytes(image)
+                results.append(image_bytes)
             except Exception as e:
                 print(f"Error in prompt {i}: {e}")
-                results.append(None)  # Or skip, depending on your needs
-
+                results.append(None)
         return results
     
     def process_from_path(self, input_path: str, image_output_path: str) -> List[Image.Image]:

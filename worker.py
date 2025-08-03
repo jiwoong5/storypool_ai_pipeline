@@ -67,55 +67,54 @@ def scene_parser(input_text:str):
     manager = SceneParserManager(parser)
     return manager.process(input_text)
 
+# prompt_maker 로직
 def prompt_maker(input_text:str):
     prompt_maker = PromptMakerSelector.get_prompt_maker("llama")
     manager = PromptMakerManager(prompt_maker)
     return manager.process(input_text)
 
-def image_maker(input_text:str, crud):
+# image_maker 로직
+def image_maker(input_text: str, pipeline_id: str, crud: PipelineCRUD):
     image_maker = ImageMakerSelector.get_image_maker('dream_shaper')
     manager = ImageMakerManager(image_maker)
-    generated_image = manager.process("image_maker/input.txt", "image_maker/")
-    return "sucess"
 
-#step 정의
+    images = manager.process(input_text)
+
+    with crud.get_session() as db:
+        for i, image_bytes in enumerate(images, 1):
+            crud.save_scene_image(
+                db=db,
+                pipeline_id=pipeline_id,
+                scene_number=i,
+                image_bytes=image_bytes
+            )
+
+    return "success"
+
+# db 분기용 유틸함수
+def use_db_for_logic(logic_fn):
+    # DB를 필요로 하는 함수명을 리스트로 관리
+    db_required_fns = {"image_maker"}
+    return logic_fn.__name__ in db_required_fns
+
+# step 함수
 def step(task_data, logic):
     payload = task_data['payload']
 
-    #step 로직 들어갈 자리
-    result = logic(payload)
+    if use_db_for_logic(logic):
+        result = logic(input_text=payload, pipeline_id=task_data['pipelineId'], crud=crud)
+    else:
+        result = logic(input_text=payload)
 
-    # 로직 성공 시 현재 step 완료 상태 저장
     r.hset(f"task:{task_data['stepId']}", mapping={
         "status": "done",
         "result": result
     })
 
-    # 다음 step 준비
     enqueue_next_step(task_data, result)
-    '''
-    # Redis에 종료 상태 업데이트
-    r.hset(f"task:{task_data['stepId']}", "status", "completed")
-
-    # 웹서버 API 호출할 URL과 데이터
-    api_url = "http://웹서버주소/api/pipeline_complete"  # 실제 웹서버 주소로 변경
-    payload = {
-        "pipelineId": task_data['pipelineId'],
-        "stepId": task_data['stepId'],
-        "status": "completed",
-        "result": task_data.get("result", "")
-    }
-
-    try:
-        response = requests.post(api_url, json=payload, timeout=5)
-        response.raise_for_status()
-        print(f"웹서버에 종료 알림 성공: {response.status_code}")
-    except requests.RequestException as e:
-        print(f"웹서버 종료 알림 실패: {e}")'''
 
 # db crud 객체 생성
 crud = PipelineCRUD(DATABASE_URL)
-image_maker_with_db = partial(image_maker, crud=crud)
 
 # Step 매핑
 step_map = {
@@ -123,7 +122,7 @@ step_map = {
     2: story_writer,
     3: scene_parser,
     4: prompt_maker,
-    5: image_maker_with_db,
+    5: image_maker,
 }
 
 # 워커 루프

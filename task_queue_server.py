@@ -31,3 +31,7 @@ def enque_first_step(request: TaskRequest):
         "message": "Task enqueued successfully",
         "stepId": step_id
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
