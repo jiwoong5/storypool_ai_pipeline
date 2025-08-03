@@ -31,12 +31,73 @@ class PipelineCRUD:
 
         if result:
             result.scene_image = image_bytes
-            result.updated_at = now  # If you use updated_at
         else:
             result = PipelineResult(
                 pipeline_id=pipeline_id,
                 scene_number=scene_number,
                 scene_image=image_bytes,
+                created_at=now
+            )
+            db.add(result)
+
+        db.commit()
+
+    def save_scene_story(
+        self,
+        db: Session,
+        pipeline_id: str,
+        scene_number: int,
+        scene_story: str
+    ) -> None:
+        """
+        Save or update a scene story (Korean translation) identified by (pipeline_id, scene_number).
+        """
+        result = (
+            db.query(PipelineResult)
+            .filter_by(pipeline_id=pipeline_id, scene_number=scene_number)
+            .first()
+        )
+
+        now = datetime.utcnow()
+
+        if result:
+            result.scene_story = scene_story
+        else:
+            result = PipelineResult(
+                pipeline_id=pipeline_id,
+                scene_number=scene_number,
+                scene_story=scene_story,
+                created_at=now
+            )
+            db.add(result)
+
+        db.commit()
+    
+    def save_mood(
+        self,
+        db: Session,
+        pipeline_id: str,
+        scene_number: int,
+        mood: str
+    ) -> None:
+        """
+        Save or update the mood for a given scene.
+        """
+        result = (
+            db.query(PipelineResult)
+            .filter_by(pipeline_id=pipeline_id, scene_number=scene_number)
+            .first()
+        )
+
+        now = datetime.utcnow()
+
+        if result:
+            result.mood = mood
+        else:
+            result = PipelineResult(
+                pipeline_id=pipeline_id,
+                scene_number=scene_number,
+                mood=mood,
                 created_at=now
             )
             db.add(result)

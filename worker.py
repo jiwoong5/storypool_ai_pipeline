@@ -1,10 +1,9 @@
 import redis
 import time
 import uuid
-from functools import partial
 
 from dotenv import load_dotenv
-import os
+import os, json
 from db.pipeline_crud import PipelineCRUD
 
 from translator.translator_selector import TranslatorSelector
@@ -49,7 +48,59 @@ def enqueue_next_step(current_task_data, result):
     r.lpush("task_queue", next_step_id)
     print(f"[STEP {current_task_data['order']}] 다음 step 생성 및 큐 등록 완료: {next_step_id}")
 
-# translator 로직
+def enqueue_next_steps_after_scene_parser(current_task_data, result):
+    """
+    scene parser 이후 분기 처리: 3개의 다음 step을 각각 등록
+
+    Args:
+        current_task_data (dict): 현재 step의 task 데이터 (stepId 포함 X)
+        result (str): scene parser의 결과 (JSON 문자열)
+    """
+    base_order = int(current_task_data['order'])
+    pipeline_id = current_task_data['pipelineId']
+
+    parsed_result = json.loads(result)
+    scenes = parsed_result.get("scenes", [])
+
+    # image_generation은 원본 전체 result 전달
+    step_id_img = str(uuid.uuid4())
+    r.hset(f"task:{step_id_img}", mapping={
+        "status": "queued",
+        "payload": result,
+        "pipelineId": pipeline_id,
+        "order": base_order + 1
+    })
+    r.lpush("task_queue", step_id_img)
+
+    # story_translation: scene_number, summary만 추출
+    translation_payload = [
+        {"scene_number": scene["scene_number"], "story": scene["summary"]}
+        for scene in scenes
+    ]
+    step_id_trans = str(uuid.uuid4())
+    r.hset(f"task:{step_id_trans}", mapping={
+        "status": "queued",
+        "payload": json.dumps(translation_payload),
+        "pipelineId": pipeline_id,
+        "order": int(f"{base_order}1")
+    })
+    r.lpush("task_queue", step_id_trans)
+
+    # emotion_classification: scene_number, mood만 추출
+    emotion_payload = [
+        {"scene_number": scene["scene_number"], "mood": scene["mood"]}
+        for scene in scenes
+    ]
+    step_id_emo = str(uuid.uuid4())
+    r.hset(f"task:{step_id_emo}", mapping={
+        "status": "queued",
+        "payload": json.dumps(emotion_payload),
+        "pipelineId": pipeline_id,
+        "order": int(f"{base_order}2")
+    })
+    r.lpush("task_queue", step_id_emo)
+
+# ko_en_translator 로직
 def ko_en_translator(input_text:str):
     translator = TranslatorSelector.get_translator("marian")
     translator_manager = TranslatorManager(translator)
@@ -91,10 +142,68 @@ def image_maker(input_text: str, pipeline_id: str, crud: PipelineCRUD):
 
     return "success"
 
-# db 분기용 유틸함수
+# en_ko_translator 로직
+def en_ko_translator(input_text: str, pipeline_id: str, crud: PipelineCRUD):
+    """
+    영어 story를 한국어로 번역하고 DB에 저장
+    input_text: '[{"scene_number": 1, "story": "...."}, ...]' 형태의 JSON 문자열
+    """
+    translator = TranslatorSelector.get_translator("nllb")
+    translator_manager = TranslatorManager(translator)
+
+    data = json.loads(input_text)
+    translated = []
+
+    with crud.get_session() as db:
+        for item in data:
+            scene_number = item["scene_number"]
+            story_en = item["story"]
+            story_ko = translator_manager.process(story_en)
+
+            # DB에 저장
+            crud.save_scene_story(db, pipeline_id, scene_number, story_ko)
+
+            translated.append({
+                "scene_number": scene_number,
+                "story_ko": story_ko
+            })
+
+    return json.dumps(translated, ensure_ascii=False)
+
+# emotion_classifer 로직
+def emotion_classifier(input_text: str, pipeline_id: str, crud: PipelineCRUD):
+    classifer = EmotionClassifierSelector.get_emotion_classifier("minilm")
+    emotion_classifer_manager = EmotionClassifierManager(classifer)
+
+    data = json.loads(input_text)
+    emotions = []
+
+    with crud.get_session() as db:
+        for item in data:
+            scene_number = item["scene_number"]
+            mood = item["mood"]
+            emotion = emotion_classifer_manager.process(mood)
+
+            # DB에 저장
+            crud.save_mood(db, pipeline_id, scene_number, mood)
+
+            emotions.append({
+                "scene_number": scene_number,
+                "emotion": emotion
+            })
+
+# next enque 분기용 유틸 함수 3개
 def use_db_for_logic(logic_fn):
     # DB를 필요로 하는 함수명을 리스트로 관리
-    db_required_fns = {"image_maker"}
+    db_required_fns = {"image_maker", "en_ko_translator", "emotion_classifer"}
+    return logic_fn.__name__ in db_required_fns
+
+def is_scene_parser_logic(logic_fn):
+    db_required_fns = {"scene_parser"}
+    return logic_fn.__name__ in db_required_fns
+
+def is_terminal(logic_fn):
+    db_required_fns = {"image_maker", "emotion_classifer", "en_ko_translator"}
     return logic_fn.__name__ in db_required_fns
 
 # step 함수
@@ -111,7 +220,12 @@ def step(task_data, logic):
         "result": result
     })
 
-    enqueue_next_step(task_data, result)
+    if is_terminal(logic):
+        return
+    elif is_scene_parser_logic(logic):
+        enqueue_next_steps_after_scene_parser(task_data, result)
+    else:
+        enqueue_next_step(task_data, result)
 
 # db crud 객체 생성
 crud = PipelineCRUD(DATABASE_URL)
@@ -123,6 +237,8 @@ step_map = {
     3: scene_parser,
     4: prompt_maker,
     5: image_maker,
+    31: en_ko_translator,
+    32: emotion_classifier
 }
 
 # 워커 루프

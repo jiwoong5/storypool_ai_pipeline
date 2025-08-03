@@ -8,8 +8,7 @@ class MiniLMClassifier(EmotionClassifierInterface):
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         self.emotion_words = emotion_words or [
             'happiness', 'sadness', 'anger',
-            'fear', 'disgust', 'surprise',
-            'anticipation', 'trust'
+            'fear', 'disgust', 'surprise'
         ]
         self.emotion_embeddings = self.model.encode(self.emotion_words, convert_to_tensor=True)
 
