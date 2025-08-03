@@ -1,6 +1,4 @@
-import redis
-import time
-import uuid
+import redis, time, uuid, requests
 
 from dotenv import load_dotenv
 import os, json
@@ -192,6 +190,39 @@ def emotion_classifier(input_text: str, pipeline_id: str, crud: PipelineCRUD):
                 "emotion": emotion
             })
 
+# 완료 알림용 로직
+def notify_fairytale_completion(base_url: str, service_token: str, pipeline_id: str, status: str = "completed") -> bool:
+    """
+    동화 생성 완료를 웹서버에 알리는 함수
+
+    Args:
+        base_url (str): 웹서버 API 기본 URL, 예: http://backend.example.com
+        service_token (str): 웹서버 API 호출 시 사용할 Bearer 토큰
+        pipeline_id (str or int): 완료된 동화 파이프라인 식별자
+        status (str): 상태 문자열, 기본값은 'completed'
+
+    Returns:
+        bool: 알림 성공 시 True, 실패 시 False
+    """
+    url = f"{base_url}/api/fairytales/notify"
+    headers = {
+        "Authorization": f"Bearer {service_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "pipelineId": str(pipeline_id),
+        "status": status
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        print(f"Notification sent successfully for pipeline {pipeline_id}.")
+        return True
+    except requests.RequestException as e:
+        print(f"Failed to notify fairytale completion: {e}")
+        return False
+    
 # next enque 분기용 유틸 함수 3개
 def use_db_for_logic(logic_fn):
     # DB를 필요로 하는 함수명을 리스트로 관리
@@ -238,7 +269,8 @@ step_map = {
     4: prompt_maker,
     5: image_maker,
     31: en_ko_translator,
-    32: emotion_classifier
+    32: emotion_classifier,
+    6: 
 }
 
 # 워커 루프
