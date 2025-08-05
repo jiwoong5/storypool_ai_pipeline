@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Text, Integer, LargeBinary, PrimaryKeyConstraint
+from sqlalchemy import create_engine, Column, String, DateTime, Text, Integer, PrimaryKeyConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -12,7 +12,7 @@ class PipelineResult(Base):
     scene_number = Column(Integer, nullable=False)
     mood = Column(String(50), nullable=True)
     scene_story = Column(Text, nullable=True)
-    scene_image = Column(LargeBinary, nullable=True)
+    scene_image_url = Column(String(2048), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (

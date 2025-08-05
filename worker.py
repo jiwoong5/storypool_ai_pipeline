@@ -1,7 +1,7 @@
-import redis, time, uuid, requests
+import redis, time, uuid, requests, boto3, os, json
+from io import BytesIO
 
 from dotenv import load_dotenv
-import os, json
 from db.pipeline_crud import PipelineCRUD
 
 from translator.translator_selector import TranslatorSelector
@@ -23,6 +23,15 @@ r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 # Db url 가져오기
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
+BASE_URL = os.getenv("BASE_URL")
+SERVICE_TOKEN = os.getenv("SERVICE_TOKEN")
+NOTIFY_ENDPOINT = os.getenv("NOTIFY_ENDPOINT")
+
+AWS_REGION = os.getenv("AWS_S3_REGION")
+AWS_BUCKET = os.getenv("AWS_S3_BUCKET_NAME")
+AWS_ACCESS_KEY = os.getenv("AWS_S3_ACCESS_KEY")
+AWS_SECRET_KEY = os.getenv("AWS_S3_SECRET_KEY")
+PRESIGNED_EXPIRATION = int(os.getenv("AWS_S3_PRESIGNED_URL_EXPIRATION", "300")) 
 
 # 큐 관련 처리
 def enqueue_next_step(current_task_data, result):
@@ -127,15 +136,20 @@ def image_maker(input_text: str, pipeline_id: str, crud: PipelineCRUD):
     image_maker = ImageMakerSelector.get_image_maker('dream_shaper')
     manager = ImageMakerManager(image_maker)
 
-    images = manager.process(input_text)
+    images = manager.process(input_text)  # List[bytes]
 
     with crud.get_session() as db:
         for i, image_bytes in enumerate(images, 1):
-            crud.save_scene_image(
+            # S3 업로드
+            s3_key = f"{pipeline_id}/scene_{i}.png"
+            image_url = upload_image_to_s3(image_bytes, s3_key)
+
+            # DB에 URL 저장
+            crud.save_scene_image_url(
                 db=db,
                 pipeline_id=pipeline_id,
                 scene_number=i,
-                image_bytes=image_bytes
+                image_url=image_url
             )
 
     return "success"
@@ -191,42 +205,41 @@ def emotion_classifier(input_text: str, pipeline_id: str, crud: PipelineCRUD):
             })
 
 # 완료 알림용 로직
-def notify_fairytale_completion(base_url: str, service_token: str, pipeline_id: str, status: str = "completed") -> bool:
+def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: PipelineCRUD) -> bool:
     """
     동화 생성 완료를 웹서버에 알리는 함수
 
     Args:
-        base_url (str): 웹서버 API 기본 URL, 예: http://backend.example.com
-        service_token (str): 웹서버 API 호출 시 사용할 Bearer 토큰
-        pipeline_id (str or int): 완료된 동화 파이프라인 식별자
-        status (str): 상태 문자열, 기본값은 'completed'
+        input_text (str): 생성에 사용된 원본 입력 (사용하지 않지만 구조적 일관성 유지용)
+        pipeline_id (str): 조회 및 알림용 파이프라인 ID
+        crud (PipelineCRUD): DB 접근용 CRUD 인스턴스
 
     Returns:
-        bool: 알림 성공 시 True, 실패 시 False
+        bool: 성공 여부
     """
-    url = f"{base_url}/api/fairytales/notify"
-    headers = {
-        "Authorization": f"Bearer {service_token}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "pipelineId": str(pipeline_id),
-        "status": status
-    }
-
+    db = crud.get_session()
     try:
+        payload = crud.get_result_payload(db, pipeline_id)
+        url = f"{BASE_URL}{NOTIFY_ENDPOINT}"
+        headers = {
+            "Authorization": f"Bearer {SERVICE_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
         print(f"Notification sent successfully for pipeline {pipeline_id}.")
         return True
-    except requests.RequestException as e:
+    except Exception as e:
         print(f"Failed to notify fairytale completion: {e}")
         return False
+    finally:
+        db.close()
     
-# next enque 분기용 유틸 함수 3개
+# 분기용 유틸 함수 3개
 def use_db_for_logic(logic_fn):
     # DB를 필요로 하는 함수명을 리스트로 관리
-    db_required_fns = {"image_maker", "en_ko_translator", "emotion_classifer"}
+    db_required_fns = {"image_maker", "en_ko_translator", "emotion_classifer", "notify_fairytale_completion"}
     return logic_fn.__name__ in db_required_fns
 
 def is_scene_parser_logic(logic_fn):
@@ -234,8 +247,31 @@ def is_scene_parser_logic(logic_fn):
     return logic_fn.__name__ in db_required_fns
 
 def is_terminal(logic_fn):
-    db_required_fns = {"image_maker", "emotion_classifer", "en_ko_translator"}
+    db_required_fns = {"emotion_classifer", "en_ko_translator", "notify_fairytale_completion"}
     return logic_fn.__name__ in db_required_fns
+
+# s3 업로드용 유틸 함수
+def upload_image_to_s3(image_bytes: bytes, s3_key: str) -> str:
+    """
+    S3에 이미지 바이너리를 업로드하고 presigned URL을 반환합니다.
+
+    Args:
+        image_bytes (bytes): PNG 이미지 데이터
+        s3_key (str): S3 내 저장할 경로 및 파일명 (예: "pipeline123/scene1.png")
+
+    Returns:
+        str: S3 presigned URL (만료 시간 내 접근 가능)
+    """
+    # 바이트 데이터를 스트림으로 변환
+    file_obj = BytesIO(image_bytes)
+
+    # S3에 업로드
+    s3_client.upload_fileobj(
+        Fileobj=file_obj,
+        Bucket=AWS_BUCKET,
+        Key=s3_key,
+        ExtraArgs={"ContentType": "image/png", "ACL": "public-read"}
+    )
 
 # step 함수
 def step(task_data, logic):
@@ -261,6 +297,14 @@ def step(task_data, logic):
 # db crud 객체 생성
 crud = PipelineCRUD(DATABASE_URL)
 
+# boto3 S3 클라이언트 생성
+s3_client = boto3.client(
+    "s3",
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+)
+
 # Step 매핑
 step_map = {
     1: ko_en_translator,
@@ -270,7 +314,7 @@ step_map = {
     5: image_maker,
     31: en_ko_translator,
     32: emotion_classifier,
-    6: 
+    6: notify_fairytale_completion
 }
 
 # 워커 루프

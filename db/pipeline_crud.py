@@ -11,16 +11,14 @@ class PipelineCRUD:
     def get_session(self) -> Session:
         return self.db_engine.get_session()
 
-    def save_scene_image(
+    def save_scene_image_url(
         self,
         db: Session,
         pipeline_id: str,
         scene_number: int,
-        image_bytes: bytes
+        image_url: str
     ) -> None:
-        """
-        Save or update a scene image identified by (pipeline_id, scene_number).
-        """
+        
         result = (
             db.query(PipelineResult)
             .filter_by(pipeline_id=pipeline_id, scene_number=scene_number)
@@ -30,12 +28,12 @@ class PipelineCRUD:
         now = datetime.utcnow()
 
         if result:
-            result.scene_image = image_bytes
+            result.scene_image_url = image_url
         else:
             result = PipelineResult(
                 pipeline_id=pipeline_id,
                 scene_number=scene_number,
-                scene_image=image_bytes,
+                scene_image_url=image_url,
                 created_at=now
             )
             db.add(result)
@@ -74,6 +72,7 @@ class PipelineCRUD:
         db.commit()
     
     def save_mood(
+            
         self,
         db: Session,
         pipeline_id: str,
@@ -103,3 +102,30 @@ class PipelineCRUD:
             db.add(result)
 
         db.commit()
+        
+    def get_result_payload(self, db: Session, pipeline_id: str) -> dict:
+        """
+        특정 pipeline_id에 해당하는 전체 scene 결과를 조회하여 payload 형식으로 반환
+        """
+        results = (
+            db.query(PipelineResult)
+            .filter_by(pipeline_id=pipeline_id)
+            .order_by(PipelineResult.scene_number)
+            .all()
+        )
+
+        page_list = [
+            {
+                "pageIndex": result.scene_number,
+                "mood": result.mood,
+                "story": result.scene_story,
+                "imageUrl": result.scene_image_url
+            }
+            for result in results
+        ]
+
+        return {
+            "pipelineId": pipeline_id,
+            "status": "completed",
+            "pageList": page_list
+        }
