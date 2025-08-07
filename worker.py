@@ -18,7 +18,7 @@ from image_maker.image_maker_selector import ImageMakerSelector
 from image_maker.image_maker_manager import ImageMakerManager
 
 # Redis 연결
-r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+r = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
 
 # Db url 가져오기
 load_dotenv()
@@ -78,6 +78,7 @@ def enqueue_next_steps_after_scene_parser(current_task_data, result):
         "order": base_order + 1
     })
     r.lpush("task_queue", step_id_img)
+    print(f"[STEP {base_order + 1}] 다음 step 생성 및 큐 등록 완료: {step_id_img}")
 
     # story_translation: scene_number, summary만 추출
     translation_payload = [
@@ -92,6 +93,7 @@ def enqueue_next_steps_after_scene_parser(current_task_data, result):
         "order": int(f"{base_order}1")
     })
     r.lpush("task_queue", step_id_trans)
+    print(f"[STEP {int(f"{base_order}1")}] 다음 step 생성 및 큐 등록 완료: {step_id_trans}")
 
     # emotion_classification: scene_number, mood만 추출
     emotion_payload = [
@@ -106,6 +108,7 @@ def enqueue_next_steps_after_scene_parser(current_task_data, result):
         "order": int(f"{base_order}2")
     })
     r.lpush("task_queue", step_id_emo)
+    print(f"[STEP {int(f"{base_order}2")}] 다음 step 생성 및 큐 등록 완료: {step_id_emo}")
 
 # ko_en_translator 로직
 def ko_en_translator(input_text:str):
@@ -239,7 +242,7 @@ def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: Pipelin
 # 분기용 유틸 함수 3개
 def use_db_for_logic(logic_fn):
     # DB를 필요로 하는 함수명을 리스트로 관리
-    db_required_fns = {"image_maker", "en_ko_translator", "emotion_classifer", "notify_fairytale_completion"}
+    db_required_fns = {"image_maker", "en_ko_translator", "emotion_classifier", "notify_fairytale_completion"}
     return logic_fn.__name__ in db_required_fns
 
 def is_scene_parser_logic(logic_fn):

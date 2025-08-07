@@ -1,4 +1,4 @@
-import re
+import re, os
 from typing import List, Dict, Any
 from api_responses.responses import SceneInfo, SceneParserResponse
 from api_responses.responses import SceneParserResponse
@@ -190,14 +190,14 @@ class ScenePostProcessor:
 class LlamaSceneParser(SceneParserInterface):
     """Llama 모델을 사용한 장면 파싱 클래스"""
     
-    def __init__(self, model: str = "llama3.2:3b", api_url: str = "http://localhost:11434/api/generate"):
-        """
-        Args:
-            model (str): 사용할 Llama 모델
-            api_url (str): API 엔드포인트 URL
-        """
+    def __init__(self, model_name: str = "llama3.2:3b", api_url: str = None):
+        from dotenv import load_dotenv
+        load_dotenv()
+        host = api_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.api_url = host.rstrip("/") + "/api/generate"
+        self.model_name = model_name
         self.llm_helper = LlamaHelper(
-            call_api_fn=APICallerSelector.select("llama", model=model, api_url=api_url),
+            call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=self.api_url),
         )
         self.post_processor = ScenePostProcessor()
 

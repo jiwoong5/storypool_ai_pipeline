@@ -1,25 +1,31 @@
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
-
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
-
+## 1단계: 의존성 설치 전용 스테이지
 ARG PYTHON_VERSION=3.12.7
-FROM python:${PYTHON_VERSION}-slim as base
+FROM python:${PYTHON_VERSION}-slim AS base
 
-# Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
-
-# Keeps Python from buffering stdout and stderr to avoid situations where
-# the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
+# requirements.txt만 먼저 복사 (의존성 캐시 최적화)
+COPY requirements.txt .
+
+# pip 캐시 활용해 의존성 설치
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install --prefix=/install -r requirements.txt
+
+## 2단계: 최종 실행 이미지
+FROM python:${PYTHON_VERSION}-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# 앱 실행용 사용자 생성
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -30,22 +36,22 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
-# Leverage a bind mount to requirements.txt to avoid having to copy them into
-# into this layer.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+# 캐시 디렉토리 생성 및 권한 부여
+RUN mkdir -p /app/.cache/huggingface && chown appuser:appuser /app/.cache/huggingface
 
-# Switch to the non-privileged user to run the application.
-USER appuser
+# base 스테이지에서 설치된 패키지 복사
+COPY --from=base /install /usr/local
 
-# Copy the source code into the container.
+# 앱 코드 복사
 COPY . .
 
-# Expose the port that the application listens on.
+# Hugging Face 캐시 위치 환경변수 지정
+ENV HF_HOME=/app/.cache/huggingface
+
+# 앱 실행 포트
 EXPOSE 8000
 
-# Run the application.
-CMD uvicorn 'apis:app' --host=0.0.0.0 --port=8000
+USER appuser
+
+# 앱 실행
+CMD ["uvicorn", "task_queue_server:app", "--host=0.0.0.0", "--port=8000"]

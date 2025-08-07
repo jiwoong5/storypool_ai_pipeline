@@ -18,3 +18,5 @@ python-dotenv
 cryptography
 redis
 sentencepiece
+boto3
+prometheus_client

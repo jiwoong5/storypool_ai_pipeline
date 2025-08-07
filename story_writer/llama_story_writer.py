@@ -1,11 +1,17 @@
 from story_writer.story_writer_interface import StoryWriterInterface
 from llama_tools.llama_helper import LlamaHelper
 from api_caller.api_caller_selector import APICallerSelector
+import os
 
 class LlamaStoryWriter(StoryWriterInterface):
-    def __init__(self, model: str = "llama3.2:3b", api_url: str = "http://localhost:11434/api/generate"):
+    def __init__(self, model_name: str = "llama3.2:3b", api_url: str = None):
+        from dotenv import load_dotenv
+        load_dotenv()
+        host = api_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.api_url = host.rstrip("/") + "/api/generate"
+        self.model_name = model_name
         self.llm_helper = LlamaHelper(
-            call_api_fn=APICallerSelector.select("llama", model=model, api_url=api_url)
+            call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=self.api_url)
         )
 
     def generate_story(self, text_content: str) -> str:

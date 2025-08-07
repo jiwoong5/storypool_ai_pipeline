@@ -3,12 +3,17 @@ from llama_tools.llama_helper import LlamaHelper
 from api_caller.api_caller_selector import APICallerSelector
 from typing import Dict, List, Any
 from util.json_maker import JsonMaker
-import json
+import json, os
 
 class LlamaPromptMaker(PromptMakerInterface):
-    def __init__(self, model_name: str = "llama3.2:3b", api_url: str = "http://localhost:11434/api/generate"):
+    def __init__(self, model_name: str = "llama3.2:3b", api_url: str = None):
+        from dotenv import load_dotenv
+        load_dotenv()
+        host = api_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.api_url = host.rstrip("/") + "/api/generate"
+        self.model_name = model_name
         self.llm_helper = LlamaHelper(
-            call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=api_url)
+            call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=self.api_url)
         )
         self.main_instruction = self._get_main_instruction()
         self.caution = self._get_caution()
