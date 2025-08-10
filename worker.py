@@ -66,49 +66,76 @@ def enqueue_next_steps_after_scene_parser(current_task_data, result):
     base_order = int(current_task_data['order'])
     pipeline_id = current_task_data['pipelineId']
 
-    parsed_result = json.loads(result)
-    scenes = parsed_result.get("scenes", [])
+    # 3개 payload 생성 및 점검 출력 함수 호출
+    original_result, translation_payload, emotion_payload = create_payloads_and_check(result)
 
     # image_generation은 원본 전체 result 전달
     step_id_img = str(uuid.uuid4())
     r.hset(f"task:{step_id_img}", mapping={
         "status": "queued",
-        "payload": result,
+        "payload": original_result,
         "pipelineId": pipeline_id,
         "order": base_order + 1
     })
     r.lpush("task_queue", step_id_img)
-    print(f"[STEP {base_order + 1}] 다음 step 생성 및 큐 등록 완료: {step_id_img}")
+    print(f"[STEP {base_order}] 다음 step 생성 및 큐 등록 완료: {step_id_img}")
 
-    # story_translation: scene_number, summary만 추출
-    translation_payload = [
-        {"scene_number": scene["scene_number"], "story": scene["summary"]}
-        for scene in scenes
-    ]
+    # story_translation: translation_payload JSON 직렬화하여 전달
     step_id_trans = str(uuid.uuid4())
     r.hset(f"task:{step_id_trans}", mapping={
         "status": "queued",
-        "payload": json.dumps(translation_payload),
+        "payload": json.dumps(translation_payload, ensure_ascii=False),
         "pipelineId": pipeline_id,
         "order": int(f"{base_order}1")
     })
     r.lpush("task_queue", step_id_trans)
-    print(f"[STEP {int(f"{base_order}1")}] 다음 step 생성 및 큐 등록 완료: {step_id_trans}")
+    print(f"[STEP {int(f'{base_order}')}] 다음 step 생성 및 큐 등록 완료: {step_id_trans}")
 
-    # emotion_classification: scene_number, mood만 추출
-    emotion_payload = [
-        {"scene_number": scene["scene_number"], "mood": scene["mood"]}
-        for scene in scenes
-    ]
+    # emotion_classification: emotion_payload JSON 직렬화하여 전달
     step_id_emo = str(uuid.uuid4())
     r.hset(f"task:{step_id_emo}", mapping={
         "status": "queued",
-        "payload": json.dumps(emotion_payload),
+        "payload": json.dumps(emotion_payload, ensure_ascii=False),
         "pipelineId": pipeline_id,
         "order": int(f"{base_order}2")
     })
     r.lpush("task_queue", step_id_emo)
-    print(f"[STEP {int(f"{base_order}2")}] 다음 step 생성 및 큐 등록 완료: {step_id_emo}")
+    print(f"[STEP {int(f'{base_order}')}] 다음 step 생성 및 큐 등록 완료: {step_id_emo}")
+
+# scene parser 큐 생성 유틸
+def create_payloads_and_check(result: str):
+    """
+    scene parser 결과 JSON 문자열에서
+    3개 payload 생성 후 각각 내용 출력 (점검용)
+
+    Args:
+        result (str): scene parser 결과 JSON 문자열
+
+    Returns:
+        tuple:
+            original_result (str): 이미지 생성용 원본 결과
+            translation_payload (list): 번역용 payload (scene_number, story)
+            emotion_payload (list): 감정분석용 payload (scene_number, mood)
+    """
+    parsed_result = json.loads(result)
+    scenes = parsed_result.get("scenes", [])
+
+    # 이미지 생성용은 원본 그대로
+    original_result = result
+
+    # 번역용 payload: scene_number, summary -> story
+    translation_payload = [
+        {"scene_number": scene["scene_number"], "story": scene["summary"]}
+        for scene in scenes
+    ]
+
+    # 감정분석용 payload: scene_number, mood
+    emotion_payload = [
+        {"scene_number": scene["scene_number"], "mood": scene["mood"]}
+        for scene in scenes
+    ]
+
+    return original_result, translation_payload, emotion_payload
 
 # ko_en_translator 로직
 def ko_en_translator(input_text:str):
@@ -182,7 +209,7 @@ def en_ko_translator(input_text: str, pipeline_id: str, crud: PipelineCRUD):
                 "scene_number": scene_number,
                 "story_ko": story_ko
             })
-
+    
     return json.dumps(translated, ensure_ascii=False)
 
 # emotion_classifer 로직
@@ -195,17 +222,23 @@ def emotion_classifier(input_text: str, pipeline_id: str, crud: PipelineCRUD):
 
     with crud.get_session() as db:
         for item in data:
-            scene_number = item["scene_number"]
-            mood = item["mood"]
-            emotion = emotion_classifer_manager.process(mood)
+            try:
+                scene_number = item["scene_number"]
+                mood = item["mood"]
+                result = emotion_classifer_manager.process(mood)
+                emotion = result.get('emotion')
+                if emotion is None:
+                    emotion = "unknown"
 
-            # DB에 저장
-            crud.save_mood(db, pipeline_id, scene_number, mood)
-
-            emotions.append({
-                "scene_number": scene_number,
-                "emotion": emotion
-            })
+                crud.save_mood(db, pipeline_id, scene_number, emotion)
+                emotions.append({
+                    "scene_number": scene_number,
+                    "emotion": emotion
+                })
+            except Exception as e:
+                print(f"[ERROR] scene_number {item.get('scene_number')}: {e}")
+                crud.save_mood(db, pipeline_id, scene_number, "error")
+    return "success"
 
 # 완료 알림용 로직
 def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: PipelineCRUD) -> bool:
@@ -232,10 +265,10 @@ def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: Pipelin
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
         print(f"Notification sent successfully for pipeline {pipeline_id}.")
-        return True
+        return "success"
     except Exception as e:
         print(f"Failed to notify fairytale completion: {e}")
-        return False
+        return "failed"
     finally:
         db.close()
     
@@ -250,7 +283,7 @@ def is_scene_parser_logic(logic_fn):
     return logic_fn.__name__ in db_required_fns
 
 def is_terminal(logic_fn):
-    db_required_fns = {"emotion_classifer", "en_ko_translator", "notify_fairytale_completion"}
+    db_required_fns = {"emotion_classifier", "en_ko_translator", "notify_fairytale_completion"}
     return logic_fn.__name__ in db_required_fns
 
 # s3 업로드용 유틸 함수
@@ -273,8 +306,16 @@ def upload_image_to_s3(image_bytes: bytes, s3_key: str) -> str:
         Fileobj=file_obj,
         Bucket=AWS_BUCKET,
         Key=s3_key,
-        ExtraArgs={"ContentType": "image/png", "ACL": "public-read"}
+        ExtraArgs={"ContentType": "image/png"}
     )
+
+    # presigned URL 생성 및 반환
+    url = s3_client.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={"Bucket": AWS_BUCKET, "Key": s3_key},
+        ExpiresIn=PRESIGNED_EXPIRATION,
+    )
+    return url
 
 # step 함수
 def step(task_data, logic):

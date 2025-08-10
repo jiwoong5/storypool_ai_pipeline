@@ -1,28 +1,35 @@
-services:
-  server:
-    build:
-      context: .
-    ports:
-      - 8000:8000
-    depends_on:
-      - mysql
-      - redis
-    env_file:
-      - ./.env
-    networks:
-      - storypool-net
+version: "3"
 
+services:
   worker:
     build:
       context: .
     command: python worker.py
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
     depends_on:
       - mysql
       - redis
     env_file:
       - ./.env
     networks:
-      - storypool-net
+      - storypool-network
+
+  server:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+      - redis
+    env_file:
+      - ./.env
+    networks:
+      - storypool-network
 
   mysql:
     image: mysql:8.0
@@ -31,57 +38,23 @@ services:
       MYSQL_ROOT_PASSWORD: soon0729
       MYSQL_DATABASE: storypool
     ports:
-      - 3306:3306
+      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
-      - storypool-net
+      - storypool-network
 
   redis:
     image: redis:8
     restart: always
     ports:
-      - 6379:6379
+      - "6379:6379"
     networks:
-      - storypool-net
-
-  redis-exporter:
-    image: oliver006/redis_exporter
-    restart: always
-    ports:
-      - 9121:9121
-    environment:
-      REDIS_ADDR: redis://redis:6379
-    depends_on:
-      - redis
-    networks:
-      - storypool-net
-
-  prometheus:
-    image: prom/prometheus
-    restart: always
-    ports:
-      - 9090:9090
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    depends_on:
-      - redis-exporter
-    networks:
-      - storypool-net
-
-  grafana:
-    image: grafana/grafana
-    restart: always
-    ports:
-      - 3000:3000
-    volumes:
-      - grafana-data:/var/lib/grafana
-    networks:
-      - storypool-net
+      - storypool-network
 
 volumes:
   mysql-data:
-  grafana-data:
 
 networks:
-  storypool-net:
+  storypool-network:
+    driver: bridge

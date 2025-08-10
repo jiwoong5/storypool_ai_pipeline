@@ -25,18 +25,38 @@ class ImageMakerManager:
         """
         results = []
 
-        prompts = json.loads(prompts)
-        prompts = [item['generated_prompt'] for item in prompts]
+        if not isinstance(prompts, str):
+            raise TypeError(f"Expected prompts to be str, got {type(prompts)}")
 
-        for i, prompt in enumerate(prompts, 1):
+        # 2) JSON 파싱 시도
+        try:
+            parsed_prompts = json.loads(prompts)
+        except json.JSONDecodeError as e:
+            print("JSONDecodeError:", e)
+            raise
+
+        # 3) 'generated_prompt' 키 존재 및 값 타입 점검
+        extracted_prompts = []
+        for i, item in enumerate(parsed_prompts, 1):
+            if not isinstance(item, dict):
+                raise TypeError(f"Item {i} is not a dict: {item}")
+            if 'generated_prompt' not in item:
+                raise KeyError(f"Item {i} missing 'generated_prompt' key")
+            prompt_value = item['generated_prompt']
+            if not isinstance(prompt_value, str):
+                raise TypeError(f"Item {i} 'generated_prompt' is not a string: {prompt_value}")
+            extracted_prompts.append(prompt_value)
+
+        # 4) 이미지 생성 루프
+        for i, prompt in enumerate(extracted_prompts, 1):
             try:
-                print(f"\n[{i}/{len(prompts)}] Generating image for prompt: {prompt[:60]}...")
                 image = self.image_maker.generate_image(prompt)
                 image_bytes = self.image_to_bytes(image)
                 results.append(image_bytes)
             except Exception as e:
                 print(f"Error in prompt {i}: {e}")
                 results.append(None)
+
         return results
     
     def process_from_path(self, input_path: str, image_output_path: str) -> List[Image.Image]:
