@@ -16,7 +16,8 @@ services:
     env_file:
       - ./.env
     networks:
-      - storypool-network
+      - ai-network
+      - web-network
 
   server:
     build:
@@ -29,7 +30,8 @@ services:
     env_file:
       - ./.env
     networks:
-      - storypool-network
+      - ai-network
+      - web-network
 
   mysql:
     image: mysql:8.0
@@ -42,7 +44,7 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
-      - storypool-network
+      - ai-network
 
   redis:
     image: redis:8
@@ -50,11 +52,13 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - storypool-network
+      - ai-network
 
 volumes:
   mysql-data:
 
 networks:
-  storypool-network:
-    driver: bridge
+  ai-network:
+  web-network:
+    external: true
+    name: storypool_backend_web-network
