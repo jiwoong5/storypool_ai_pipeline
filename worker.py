@@ -241,7 +241,7 @@ def emotion_classifier(input_text: str, pipeline_id: str, crud: PipelineCRUD):
     return "success"
 
 # 완료 알림용 로직
-def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: PipelineCRUD) -> bool:
+def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: PipelineCRUD) -> str:
     """
     동화 생성 완료를 웹서버에 알리는 함수
 
@@ -251,7 +251,7 @@ def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: Pipelin
         crud (PipelineCRUD): DB 접근용 CRUD 인스턴스
 
     Returns:
-        bool: 성공 여부
+        str: 성공 여부
     """
     db = crud.get_session()
     try:
@@ -262,7 +262,7 @@ def notify_fairytale_completion(input_text: str, pipeline_id: str, crud: Pipelin
             "Content-Type": "application/json"
         }
 
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
         response.raise_for_status()
         print(f"Notification sent successfully for pipeline {pipeline_id}.")
         return "success"
