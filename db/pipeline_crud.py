@@ -104,9 +104,6 @@ class PipelineCRUD:
         db.commit()
         
     def get_result_payload(self, db: Session, pipeline_id: str) -> dict:
-        """
-        특정 pipeline_id에 해당하는 전체 scene 결과를 조회하여 payload 형식으로 반환
-        """
         results = (
             db.query(PipelineResult)
             .filter_by(pipeline_id=pipeline_id)
@@ -125,7 +122,9 @@ class PipelineCRUD:
         ]
 
         return {
-            "pipelineId": pipeline_id,
-            "status": "completed",
-            "pageList": page_list
+            "id": pipeline_id,
+            "pageNumber": len(page_list),
+            "pageList": page_list,
+            "status": "COMPLETED",
+            "message": "동화 생성이 완료되었습니다."
         }

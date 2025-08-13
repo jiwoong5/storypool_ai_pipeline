@@ -32,6 +32,28 @@ def enque_first_step(request: TaskRequest):
         "stepId": step_id
     }
 
+@app.post("/enque_notify_test")
+def enque_sixth_step(request: TaskRequest):
+    step_id = str(uuid.uuid4())
+
+    task_key = f"task:{step_id}"
+    r.hset(task_key, mapping={
+        "pipelineId": request.pipelineId,
+        "stepId": step_id,
+        "status": "queued",
+        "order": 6,
+        "payload": "success"
+    })
+
+    # 3. 작업 큐에 step_id 넣기 (예: Redis list 사용)
+    r.lpush("task_queue", step_id)
+
+    # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$ response 구조체 도입 필요 $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+    return {
+        "message": "Task enqueued successfully",
+        "stepId": step_id
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

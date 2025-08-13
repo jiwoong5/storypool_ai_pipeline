@@ -145,7 +145,7 @@ class ScenePostProcessor:
             location=scene_data.get('location', '').strip() or None,
             time=scene_data.get('time', '').strip() or None,
             mood=scene_data.get('mood', '').strip() or None,
-            summary=scene_data.get('summary', '').strip() or None,
+            summary=scene_data.get('story', '').strip() or None,
             dialogue_count=dialogue_count
         )
     
@@ -216,9 +216,9 @@ class LlamaSceneParser(SceneParserInterface):
 
         Please follow these steps in your analysis:
         1. First, read the entire story and identify the scene transition points.
-        2. For each scene, analyze and extract the characters, location, time, and mood.
+        2. For each scene, analyze and extract the characters, location, time, mood, and part of story.
         3. If there is dialogue, count the number of dialogue instances.
-        4. sum of summary must include full story.
+        4. sum of part of story must include full story.
 
         Criteria for dividing scenes:
         - Change of location (e.g., moving from home to the park)
@@ -246,7 +246,7 @@ class LlamaSceneParser(SceneParserInterface):
             "location": "Home",
             "time": "Morning",
             "mood": "Melancholic",
-            "summary": "Emma woke up early in the morning. She looked out the window and sighed—it was a sunny day, but she felt strangely down.",
+            "story": "Emma woke up early in the morning. She looked out the window and sighed—it was a sunny day, but she felt strangely down.",
             "dialogue_count": 0
             },
             {
@@ -256,7 +256,7 @@ class LlamaSceneParser(SceneParserInterface):
             "location": "Park",
             "time": "Late Morning",
             "mood": "Peaceful",
-            "summary": "After having a quick breakfast, she grabbed her sketchbook and walked to the nearby park. Children were playing, dogs were running, and couples were talking on benches.",
+            "story": "After having a quick breakfast, she grabbed her sketchbook and walked to the nearby park. Children were playing, dogs were running, and couples were talking on benches.",
             "dialogue_count": 0
             },
             {
@@ -266,7 +266,7 @@ class LlamaSceneParser(SceneParserInterface):
             "location": "Park",
             "time": "Late Morning",
             "mood": "Peaceful",
-            "summary": "She found a quiet bench under a tree and started drawing. A little girl came up to her and asked, “What are you drawing?” Emma smiled and showed her the sketch.",
+            "story": "She found a quiet bench under a tree and started drawing. A little girl came up to her and asked, “What are you drawing?” Emma smiled and showed her the sketch.",
             "dialogue_count": 1
             }
         ],
