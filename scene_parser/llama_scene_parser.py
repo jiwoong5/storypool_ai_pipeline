@@ -34,9 +34,8 @@ class LlamaSceneParser(SceneParserInterface):
 
         Please follow these steps in your analysis:
         1. First, read the entire story and identify the scene transition points.
-        2. For each scene, analyze and extract the characters, location, time, mood, and part of story.
+        2. For each scene, analyze and extract the characters, location, time, mood, and part of story. - IMPORTANT: Do not summarize the scene. Instead, take the relevant portion of the original text corresponding to this scene and include it as-is in the "story" field.
         3. If there is dialogue, count the number of dialogue instances.
-        4. sum of part of story must include full story.
 
         Criteria for dividing scenes:
         - Change of location (e.g., moving from home to the park)
