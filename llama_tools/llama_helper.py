@@ -6,7 +6,7 @@ from util.json_maker import JsonMaker
 class LlamaHelper:
     """LLM 호출 및 응답 처리를 담당하는 헬퍼 클래스"""
     
-    def __init__(self, call_api_fn, temperature=0.3, top_p=0.9):
+    def __init__(self, call_api_fn, temperature=0.4, top_p=0.9):
         """
         Args:
             call_api_fn: LLM 호출 함수 (str -> dict)
@@ -28,7 +28,11 @@ class LlamaHelper:
         Returns:
             str: 조합된 instruction
         """
-        return f"{main_instruction.strip()}\n{content.strip()}\n{caution.strip()}"
+        # 특수기호 주의사항 추가
+        special_char_notice = "※ When using special characters in strings make sure to escape them."
+        
+        return f"{main_instruction.strip()}\n{content.strip()}\n{caution.strip()}\n{special_char_notice}"
+
 
     def retry_and_extract(self, instruction: str, max_retries: int = 3, description: str = "작업") -> str:
         """
@@ -58,25 +62,46 @@ class LlamaHelper:
         raise ValueError("예상치 못한 오류로 실패했습니다.")
 
     def retry_and_get_json(self, instruction: str, max_retries: int = 3, description: str = "작업") -> Dict:
+        """
+        LLaMA API 호출 결과를 안전하게 JSON으로 파싱하여 반환합니다.
+        - Python dict, 순수 JSON 문자열, Python dict 스타일 문자열 모두 처리
+        - description이 'story 개선 요청'일 경우 raw response 출력
+        - 실패 시 최대 max_retries 회 재시도
+        """
         for attempt in range(1, max_retries + 1):
             try:
+                # API 호출
                 response = self.call_api(instruction)
-                json_str = response["response"].strip()
-                
-                # 유효성 검증
-                if not self.json_maker.is_valid_json(json_str):
-                    raise json.JSONDecodeError("JSON 유효성 검증 실패", json_str, 0)
-                
-                # 최종 파싱
+                json_data = response["response"]
+
+                # 이미 dict이면 그대로 반환
+                if isinstance(json_data, dict):
+                    return json_data
+
+                # 문자열로 변환
+                json_str = str(json_data).strip()
+
+                # Python dict 스타일 문자열 처리
+                if json_str.startswith("{") and json_str.endswith("}"):
+                    import ast
+                    try:
+                        data_dict = ast.literal_eval(json_str)
+                        return data_dict
+                    except Exception:
+                        pass
+
+                # JSON 파싱 시도
                 return json.loads(json_str)
-            
-            except json.JSONDecodeError as e:
+
+            except (json.JSONDecodeError, ValueError, SyntaxError) as e:
                 print(f"[{attempt}회차] JSON 파싱 실패: {e}")
                 if attempt == max_retries:
                     raise ValueError(f"최대 {max_retries}회 재시도했지만 실패했습니다. 중단합니다.")
                 print(f"다시 {description}을(를) 시도합니다...")
+
             except Exception as e:
                 print(f"[{attempt}회차] 기타 오류: {e}")
                 if attempt == max_retries:
                     raise
                 print(f"다시 {description}을(를) 시도합니다...")
+

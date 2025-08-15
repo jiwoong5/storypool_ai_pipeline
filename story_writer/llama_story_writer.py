@@ -16,6 +16,6 @@ class LlamaStoryWriter(StoryWriterInterface):
 
     def generate_story(self, text_content: str) -> str:
         main_instruction = "Read the text and create a story based on it."
-        caution = "The story must follow the characters and their descriptions. And Must add delimiters '---' at the beginning and end of the story."
+        caution = "The story must follow the characters and their descriptions."
         instruction = self.llm_helper.build_instruction(main_instruction, text_content, caution)
         return self.llm_helper.retry_and_extract(instruction, description="이야기 생성")

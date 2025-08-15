@@ -19,35 +19,41 @@ class LlamaPromptMaker(PromptMakerInterface):
         self.caution = self._get_caution()
         self.json_maker = JsonMaker()
 
+        # 그림체 관련 문구
+        self.art_style_text = "studio ghibli style, 2D hand-drawn animation, soft watercolor painting, delicate lineart, pastel color palette"
+
     def _get_main_instruction(self) -> str:
-        return """You are an expert prompt engineer creating detailed, high-quality image generation prompts that strictly maintain character consistency across all scenes.
+        return """
+        You are an expert prompt engineer creating detailed, image generation prompts that strictly maintain character consistency across all scenes.
 
         ## Task:
-        Transform scene data into storybook-style prompts emphasizing a consistent character (age, body, hair, clothing, expression) without using names.
+        Transform scene data into prompts emphasizing a consistent character (age, body, hair, clothing, expression) without using names.
 
         ## Guidelines:
-        - Maintain the same character appearance and outfit in every scene; no changes unless explicitly instructed.
-        - Use descriptive phrases like “slim young woman with shoulder-length brown hair”.
-        - Emphasize a magical, dreamy, emotional tone with fairytale keywords (enchanted, whimsical, pastel, gentle, glowing).
-        - Include classic children's illustration styles: watercolor, gouache, pencil sketch.
-        - Focus on character expression, mood, interaction, and atmosphere.
-        - Prompts must be 150–300 characters.
-        - Output only valid JSON in this format — no explanations or extra text.
+        - Maintain the same appearance and outfit for all characters in every scene.
+        - All characters and key objects mentioned in the story must appear in the prompt.
+        - Interactions between the characters and key objects described in the story must be included in the prompt.
+        - Each prompt must be written completely independently. Do not use expressions that refer to other scenes or previous/next scenes (e.g., "scene 1’s," "earlier," "previously").
+        - For each scene, independently restate the characteristics of the characters.
+
+        ## Field Descriptions:
+        - **scene_number**: A number representing the order of the scene in the story.
+        - **generated_prompt**: A detailed text description of the scene suitable for image generation, including all characters, key objects, their interactions, character expressions, and outfits. Avoid using character names.
 
         ## Response Format (Example):
         {
         "prompts": [
             {
-            "scene_number": 1,
-            "generated_prompt": "Dreamy storybook illustration of a delicate young woman with flowing brown hair wearing a soft linen nightdress, gazing out a misty window in a cozy attic room, morning light gently pouring through enchanted curtains, watercolor texture, pastel hues, magical mood"
+            "scene_number": "1",
+            "generated_prompt": ""
             },
             {
-            "scene_number": 2,
-            "generated_prompt": "Whimsical storybook illustration of the same gentle young woman, now changed out of her nightdress into a pale cotton blouse and soft skirt, sitting beneath a blooming cherry tree beside an older woman with silvery hair and warm eyes, petals drifting in the breeze, soft glowing sunlight, watercolor style, pastel tones"
+            "scene_number": "2",
+            "generated_prompt": ""
             },
             {
-            "scene_number": 3,
-            "generated_prompt": "Fairytale-style storybook illustration of the same young woman, still dressed in her pale cotton blouse and soft skirt, walking hand-in-hand with her mother through a sun-dappled forest path, both smiling softly as golden light filters through the trees, watercolor texture, enchanted atmosphere, pastel colors, gentle mood"
+            "scene_number": "3",
+            "generated_prompt": ""
             }
         ],
         "total_prompts": 3
@@ -57,32 +63,29 @@ class LlamaPromptMaker(PromptMakerInterface):
         {scene_data}
     """
 
-    
     def _get_caution(self) -> str:
-        return """CRITICAL CAUTIONS:
-        1. ALWAYS respond in valid JSON format exactly as specified — no extra text or reasoning.
-        2. Describe characters consistently across ALL scenes: age, build, hair, clothing, expression, posture.
-        3. DO NOT change the character’s physical description or outfit between scenes — consistency is essential.
-        4. DO NOT use character names — use descriptive phrases like "slim young adult woman with shoulder-length brown hair".
-        5. Include artistic style, composition, lighting, and relevant keywords.
-        6. Ensure clear character positioning, interaction, and prominence.
-        7. Environmental elements must support, not overshadow, the characters.
-"""
+        return "Return only valid JSON format. Do not include any explanatory text before or after the JSON."
 
     def get_error_response(self, error_message: str, scene_index: int = None) -> dict:
-            """
-            에러 발생 시 일관된 JSON 형식으로 응답 반환.
-            """
-            response = {
-                "scene_number": scene_index if scene_index is not None else -1,
-                "success": False,
-                "message": f"Prompt generation failed: {error_message}",
-                "generated_prompt": ""
-            }
-            return response
+        response = {
+            "scene_number": scene_index if scene_index is not None else -1,
+            "success": False,
+            "message": f"Prompt generation failed: {error_message}",
+            "generated_prompt": ""
+        }
+        return response
+
+    def add_art_style_to_prompts(self, prompts: list) -> list:
+        """각 프롬프트에 그림체 문구를 추가"""
+        updated_prompts = []
+        for p in prompts:
+            # generated_prompt 필드가 있으면 뒤에 그림체 문구를 붙임
+            if "generated_prompt" in p and isinstance(p["generated_prompt"], str):
+                p["generated_prompt"] = p["generated_prompt"].strip() + self.art_style_text
+            updated_prompts.append(p)
+        return updated_prompts
 
     def make_prompts(self, scene_texts: List[str]) -> List[Dict[str, Any]]:
-        """여러 scene 텍스트를 한 번에 받아 한꺼번에 프롬프트 생성"""
         try:
             combined_scene_data = "\n\n".join(f"Scene {i+1}:\n{scene.strip()}" for i, scene in enumerate(scene_texts))
 
@@ -101,6 +104,10 @@ class LlamaPromptMaker(PromptMakerInterface):
                 instruction,
                 description="Batch scene image generation prompts"
             )
+
+            # 프롬프트 생성 후 그림체 문구 추가
+            if isinstance(result, dict) and "prompts" in result:
+                result["prompts"] = self.add_art_style_to_prompts(result["prompts"])
 
             return result
 
