@@ -18,6 +18,9 @@ class LlamaSceneParser(SceneParserInterface):
         self.llm_helper = LlamaHelper(
             call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=self.api_url),
         )
+        self.llm_helper_location = LlamaHelper(
+            call_api_fn=APICallerSelector.select("llama", model=model_name, api_url=self.api_url), temperature=0.5
+        )
 
     def parse(self, text_content: str):
         """
@@ -397,8 +400,8 @@ class LlamaSceneParser(SceneParserInterface):
 
         caution = f"Return only valid array format with locations array. Do not include any explanatory text before or after the array."
         
-        instruction = self.llm_helper.build_instruction(location_instruction, scenes_context, caution)
-        return self.llm_helper.retry_and_extract(instruction, description="장면별 위치 추론")
+        instruction = self.llm_helper_location.build_instruction(location_instruction, scenes_context, caution)
+        return self.llm_helper_location.retry_and_extract(instruction, description="장면별 위치 추론")
 
     def _merge_locations(self, basic_scenes_data: Dict[str, Any], locations: List[str]):
         """
