@@ -6,7 +6,7 @@ from util.json_maker import JsonMaker
 class LlamaHelper:
     """LLM 호출 및 응답 처리를 담당하는 헬퍼 클래스"""
     
-    def __init__(self, call_api_fn, temperature=0.4, top_p=0.9):
+    def __init__(self, call_api_fn, temperature=0.3, top_p=0.9):
         """
         Args:
             call_api_fn: LLM 호출 함수 (str -> dict)
@@ -28,10 +28,8 @@ class LlamaHelper:
         Returns:
             str: 조합된 instruction
         """
-        # 특수기호 주의사항 추가
-        special_char_notice = "※ When using special characters in strings make sure to escape them."
-        
-        return f"{main_instruction.strip()}\n{content.strip()}\n{caution.strip()}\n{special_char_notice}"
+
+        return f"{main_instruction.strip()}\n{content.strip()}\n{caution.strip()}"
 
 
     def retry_and_extract(self, instruction: str, max_retries: int = 3, description: str = "작업") -> str:
@@ -65,7 +63,6 @@ class LlamaHelper:
         """
         LLaMA API 호출 결과를 안전하게 JSON으로 파싱하여 반환합니다.
         - Python dict, 순수 JSON 문자열, Python dict 스타일 문자열 모두 처리
-        - description이 'story 개선 요청'일 경우 raw response 출력
         - 실패 시 최대 max_retries 회 재시도
         """
         for attempt in range(1, max_retries + 1):
@@ -73,7 +70,7 @@ class LlamaHelper:
                 # API 호출
                 response = self.call_api(instruction)
                 json_data = response["response"]
-
+                
                 # 이미 dict이면 그대로 반환
                 if isinstance(json_data, dict):
                     return json_data
