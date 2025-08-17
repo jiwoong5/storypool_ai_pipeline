@@ -113,7 +113,8 @@ class LlamaSceneParser(SceneParserInterface):
 
     def _find_missing_parts(self, original: str, reconstructed: str) -> List[List[str]]:
         """
-        원본과 재구성된 텍스트를 비교하여 누락된 부분과 그 앞뒤 문장을 찾는다
+        원본과 재구성된 텍스트를 비교하여 누락된 부분과 그 앞뒤 문장을 찾는다.
+        original과 완전히 일치하지 않아도 루프가 안전하게 종료되도록 수정됨.
         
         Args:
             original (str): 원본 텍스트
@@ -122,62 +123,30 @@ class LlamaSceneParser(SceneParserInterface):
         Returns:
             List[List[str]]: 각 누락 부분에 대해 [앞문장, 누락문장, 뒷문장] 형태의 리스트
         """
-        # 문장 단위로 분할 (마침표, 느낌표, 물음표 기준)
-        # 마침표 누락 케이스도 고려하여 더 유연한 패턴 사용
-        sentence_pattern = r'(?<=[.!?])\s+|(?<=\w)\s+(?=[A-Z가-힣])|(?<=\w)\s*\n\s*(?=[A-Z가-힣])'
-        
-        # 기본 패턴으로 먼저 시도
         basic_pattern = r'[.!?]+\s*'
         original_sentences = [s.strip() for s in re.split(basic_pattern, original) if s.strip()]
         reconstructed_sentences = [s.strip() for s in re.split(basic_pattern, reconstructed) if s.strip()]
-        
-        # 마침표 누락으로 인해 문장이 제대로 분할되지 않은 경우 추가 처리
-        def normalize_sentence(sentence):
-            """문장 끝에 마침표가 없으면 추가하여 정규화"""
-            sentence = sentence.strip()
-            if sentence and not sentence.endswith(('.', '!', '?')):
-                sentence += '.'
-            return sentence
-        
-        original_sentences = [normalize_sentence(s) for s in original_sentences]
-        reconstructed_sentences = [normalize_sentence(s) for s in reconstructed_sentences]
         
         missing_parts = []
         orig_idx = 0
         recon_idx = 0
         
         while orig_idx < len(original_sentences):
-            if recon_idx < len(reconstructed_sentences) and \
-               original_sentences[orig_idx] == reconstructed_sentences[recon_idx]:
-                # 일치하는 경우
+            if recon_idx < len(reconstructed_sentences) and original_sentences[orig_idx] == reconstructed_sentences[recon_idx]:
+                # 문장이 일치하면 다음으로 이동
                 orig_idx += 1
                 recon_idx += 1
             else:
-                # 누락된 부분 발견
-                missing_start = orig_idx
+                # 일치하지 않는 경우 누락 처리
+                missing_sentence = original_sentences[orig_idx]
+                prev_sentence = original_sentences[orig_idx - 1] if orig_idx > 0 else ""
+                next_sentence = original_sentences[orig_idx + 1] if orig_idx + 1 < len(original_sentences) else ""
                 
-                # 누락된 부분의 끝을 찾기
-                while orig_idx < len(original_sentences):
-                    # 다음에 일치하는 문장이 있는지 확인
-                    found_match = False
-                    for future_recon_idx in range(recon_idx, len(reconstructed_sentences)):
-                        if original_sentences[orig_idx] == reconstructed_sentences[future_recon_idx]:
-                            found_match = True
-                            break
-                    
-                    if found_match:
-                        break
-                    orig_idx += 1
-                
-                # 누락된 문장들과 앞뒤 문장 추출
-                for missing_idx in range(missing_start, orig_idx):
-                    prev_sentence = original_sentences[missing_idx - 1] if missing_idx > 0 else ""
-                    missing_sentence = original_sentences[missing_idx]
-                    next_sentence = original_sentences[missing_idx + 1] if missing_idx + 1 < len(original_sentences) else ""
-                    
-                    missing_parts.append([prev_sentence, missing_sentence, next_sentence])
+                missing_parts.append([prev_sentence, missing_sentence, next_sentence])
+                orig_idx += 1  # recon_idx는 이동하지 않고 orig_idx만 증가시켜 무한 루프 방지
         
         return missing_parts
+
 
     def _find_target_scene_for_missing_part(self, missing_part: List[str], scenes: List[Dict]) -> int:
         """
