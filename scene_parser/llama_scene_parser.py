@@ -30,30 +30,26 @@ class LlamaSceneParser(SceneParserInterface):
             text_content (str): 분석할 텍스트 내용
             
         Returns:
-            SceneParserResponse: 구조화된 장면 분석 결과 (Pydantic 모델)
+            dict: 구조화된 장면 분석 결과 (JSON serializable)
         """
         try:
+            print("# 1단계: 기본 장면 파싱 (location 제외)")
             # 1단계: 기본 장면 파싱 (location 제외)
             basic_scenes_data = self._parse_basic_scenes_with_correction(text_content)
-            
+            print("# 2단계: 장면별 location 추론")
             # 2단계: 장면별 location 추론
             locations = self._infer_locations(basic_scenes_data)
-            
+            print("# 3단계: location을 기본 장면 데이터에 추가")
             # 3단계: location을 기본 장면 데이터에 추가
             enhanced_scenes_data = self._merge_locations(basic_scenes_data, locations)
             
+            print("# 4단계: Dictionary로 반환")
+            # 4단계: Dictionary로 반환
             return enhanced_scenes_data
             
         except Exception as e:
             print(f"장면 파싱 중 오류 발생: {e}")
-            return SceneParserResponse(
-                status="error",
-                message=f"장면 파싱 중 오류 발생: {str(e)}",
-                scenes=[],
-                total_scenes=0,
-                main_characters=[],
-                locations=[]
-            )
+            return {"error": f"장면 파싱 중 오류 발생: {str(e)}"}
 
     def _parse_basic_scenes(self, text_content: str):
         """
@@ -146,7 +142,6 @@ class LlamaSceneParser(SceneParserInterface):
                 orig_idx += 1  # recon_idx는 이동하지 않고 orig_idx만 증가시켜 무한 루프 방지
         
         return missing_parts
-
 
     def _find_target_scene_for_missing_part(self, missing_part: List[str], scenes: List[Dict]) -> int:
         """
@@ -315,9 +310,12 @@ class LlamaSceneParser(SceneParserInterface):
             print(f"기본 장면 파싱 오류: {e}")
             return basic_scenes_data
 
-    def _infer_locations(self, basic_scenes_data: Dict[str, Any]):
+    def _infer_locations(self, basic_scenes_data: Dict[str, Any]) -> List[str]:
         """
         장면별 story 내용을 기반으로 각 장면의 location 추론
+        
+        Returns:
+            List[str]: 각 장면의 위치 정보 리스트
         """
         try:
             # 장면별 요약 정보 생성
@@ -337,17 +335,39 @@ class LlamaSceneParser(SceneParserInterface):
             # LLM 반환 문자열을 실제 리스트로 변환
             locations = json.loads(locations_str)
             
+            # 리스트가 아닌 경우 기본값으로 처리
+            if not isinstance(locations, list):
+                print(f"위치 추론 결과가 예상 형식이 아닙니다: {type(locations)}")
+                return ["알 수 없음"] * len(scenes)
+            
+            # 장면 수와 위치 수가 일치하지 않는 경우 조정
+            if len(locations) != len(scenes):
+                print(f"위치 수({len(locations)})와 장면 수({len(scenes)})가 일치하지 않습니다.")
+                if len(locations) < len(scenes):
+                    # 부족한 경우 "알 수 없음"으로 채움
+                    locations.extend(["알 수 없음"] * (len(scenes) - len(locations)))
+                else:
+                    # 초과한 경우 잘라냄
+                    locations = locations[:len(scenes)]
+            
             return locations
             
+        except json.JSONDecodeError as e:
+            print(f"위치 추론 결과 JSON 파싱 오류: {e}")
+            scenes_count = len(basic_scenes_data.get("scenes", []))
+            return ["알 수 없음"] * scenes_count
         except Exception as e:
             print(f"위치 추론 중 오류 발생: {e}")
             # 오류 발생 시 기본값으로 처리
             scenes_count = len(basic_scenes_data.get("scenes", []))
             return ["알 수 없음"] * scenes_count
 
-    def _request_location_inference(self, scenes_context: str, scene_count: int):
+    def _request_location_inference(self, scenes_context: str, scene_count: int) -> str:
         """
         전체 장면 컨텍스트를 고려하여 각 장면의 location 추론 요청
+        
+        Returns:
+            str: JSON 형태의 위치 배열 문자열
         """
         location_instruction = f'''
         You are a location inference expert. You will receive scene summaries from a story and need to infer the most appropriate location for each scene.
@@ -361,28 +381,48 @@ class LlamaSceneParser(SceneParserInterface):
         5. Logical connections between scenes
 
         Output:
-        An array of size N containing the main location for each of the N scenes
+        An array of exactly {scene_count} locations, one for each scene in order.
 
         Expected output format:
-        ["", "", "", ...]
+        ["location1", "location2", "location3", ...]
         '''
 
-        caution = f"Return only valid array format with locations array. Do not include any explanatory text before or after the array."
+        caution = f"Return only a valid JSON array with exactly {scene_count} location strings. Do not include any explanatory text before or after the array."
         
         instruction = self.llm_helper_location.build_instruction(location_instruction, scenes_context, caution)
         return self.llm_helper_location.retry_and_extract(instruction, description="장면별 위치 추론")
 
-    def _merge_locations(self, basic_scenes_data: Dict[str, Any], locations: List[str]):
+    def _merge_locations(self, basic_scenes_data: Dict[str, Any], locations: List[str]) -> Dict[str, Any]:
         """
-        기본 장면 데이터에 location 정보를 추가하여 최종 결과 생성
-        """
-        scenes = basic_scenes_data.get("scenes", [])
+        기본 장면 데이터에 위치 정보를 추가
         
-        # 각 장면에 location 추가
-        for i, scene in enumerate(scenes):
-            if i < len(locations):
-                scene["location"] = locations[i]
-            else:
+        Args:
+            basic_scenes_data (Dict[str, Any]): 기본 장면 데이터
+            locations (List[str]): 각 장면의 위치 정보
+            
+        Returns:
+            Dict[str, Any]: 위치 정보가 추가된 장면 데이터
+        """
+        try:
+            scenes = basic_scenes_data.get("scenes", [])
+            
+            # 각 장면에 location 추가
+            for i, scene in enumerate(scenes):
+                if i < len(locations):
+                    scene["location"] = locations[i]
+                else:
+                    scene["location"] = "알 수 없음"
+            
+            # 전체 위치 목록도 추가
+            basic_scenes_data["locations"] = locations
+            
+            return basic_scenes_data
+            
+        except Exception as e:
+            print(f"위치 정보 병합 중 오류 발생: {e}")
+            # 오류 발생 시 기본값으로 처리
+            scenes = basic_scenes_data.get("scenes", [])
+            for scene in scenes:
                 scene["location"] = "알 수 없음"
-        
-        return basic_scenes_data
+            basic_scenes_data["locations"] = ["알 수 없음"] * len(scenes)
+            return basic_scenes_data

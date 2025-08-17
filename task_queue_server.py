@@ -7,8 +7,8 @@ app = FastAPI()
 r = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
 
 class TaskRequest(BaseModel):
-    pipelineId: str
-    ocrResult: str
+    fairytaleId: str
+    text: str
 
 @app.post("/enque")
 def enque_first_step(request: TaskRequest):
@@ -16,11 +16,11 @@ def enque_first_step(request: TaskRequest):
 
     task_key = f"task:{step_id}"
     r.hset(task_key, mapping={
-        "pipelineId": request.pipelineId,
+        "pipelineId": request.fairytaleId,
         "stepId": step_id,
         "status": "queued",
         "order": 1,
-        "payload": request.ocrResult
+        "payload": request.text
     })
 
     # 3. 작업 큐에 step_id 넣기 (예: Redis list 사용)
@@ -28,8 +28,9 @@ def enque_first_step(request: TaskRequest):
 
     # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$ response 구조체 도입 필요 $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     return {
-        "message": "Task enqueued successfully",
-        "stepId": step_id
+        "success": True,
+        "error": "으악!",
+        "message": "Task enqueued successfully"
     }
 
 @app.post("/enque_notify_test")

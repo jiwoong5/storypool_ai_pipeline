@@ -122,10 +122,9 @@ def create_payloads_and_check(result: str):
 
     # 이미지 생성용은 원본 그대로
     original_result = result
-
     # 번역용 payload: scene_number, summary -> story
     translation_payload = [
-        {"scene_number": scene["scene_number"], "story": scene["summary"]}
+        {"scene_number": scene["scene_number"], "story": scene["story"]}
         for scene in scenes
     ]
 
@@ -134,7 +133,6 @@ def create_payloads_and_check(result: str):
         {"scene_number": scene["scene_number"], "mood": scene["mood"]}
         for scene in scenes
     ]
-
     return original_result, translation_payload, emotion_payload
 
 # ko_en_translator 로직
@@ -289,16 +287,8 @@ def is_terminal(logic_fn):
 # s3 업로드용 유틸 함수
 def upload_image_to_s3(image_bytes: bytes, s3_key: str) -> str:
     """
-    S3에 이미지 바이너리를 업로드하고 presigned URL을 반환합니다.
-
-    Args:
-        image_bytes (bytes): PNG 이미지 데이터
-        s3_key (str): S3 내 저장할 경로 및 파일명 (예: "pipeline123/scene1.png")
-
-    Returns:
-        str: S3 presigned URL (만료 시간 내 접근 가능)
+    S3에 이미지 업로드 후 public URL 반환
     """
-    # 바이트 데이터를 스트림으로 변환
     file_obj = BytesIO(image_bytes)
 
     # S3에 업로드
@@ -306,15 +296,11 @@ def upload_image_to_s3(image_bytes: bytes, s3_key: str) -> str:
         Fileobj=file_obj,
         Bucket=AWS_BUCKET,
         Key=s3_key,
-        ExtraArgs={"ContentType": "image/png"}
+        ExtraArgs={"ContentType": "image/png", "ACL": "public-read"}  # 퍼블릭 읽기 권한
     )
 
-    # presigned URL 생성 및 반환
-    url = s3_client.generate_presigned_url(
-        ClientMethod="get_object",
-        Params={"Bucket": AWS_BUCKET, "Key": s3_key},
-        ExpiresIn=PRESIGNED_EXPIRATION,
-    )
+    # 그냥 URL 생성 (리전 필요)
+    url = f"https://{AWS_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{s3_key}"
     return url
 
 # step 함수
