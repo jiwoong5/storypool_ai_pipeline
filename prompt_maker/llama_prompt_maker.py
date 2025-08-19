@@ -22,7 +22,7 @@ class LlamaPromptMaker(PromptMakerInterface):
         self.json_maker = JsonMaker()
 
         # 그림체 관련 문구
-        self.art_style_text = "studio ghibli style, 2D hand-drawn animation, soft watercolor painting, delicate lineart, pastel color palette"
+        self.art_style_text = "2D hand-drawn animation"
 
     def _get_character_analysis_instruction(self) -> str:
         return """
@@ -315,7 +315,93 @@ class LlamaPromptMaker(PromptMakerInterface):
                 "total_characters": 0,
                 "error": str(e)
             }
+        
+    def _postprocess_character_info(self, character_names):
+        """
+        캐릭터 이름 리스트를 받아서 누락된 속성을 예시값 중 랜덤으로 채워 dict 반환
+        
+        Args:
+            character_names (List[str]): 캐릭터 이름 리스트
+            
+        Returns:
+            dict: {"characters": [...], "total_characters": int}
+        """
 
+        # 예시값들
+        AGE_GROUPS = ["child", "teen", "young adult", "adult", "elderly"]
+        GENDERS = ["male", "female"]
+        HAIRS = [
+            "short", 
+            "long", 
+            "curly", 
+            "straight", 
+            "messy",
+            "wavy",
+            "braided",
+            "bob cut",
+            "layered"
+        ]
+        FACES = ["round", "oval", "square", "heart-shaped", "diamond"]
+        BODY_TYPES = ["slim", "average", "athletic", "chubby", "tall", "short"]
+        DISTINCTIVE_FEATURES = [
+            "bright smile",
+            "sparkling eyes",
+            "rosy cheeks",
+            "freckles",
+            "dimples",
+            "shiny hair",
+            "elegant posture",
+            "none"
+        ]
+        
+        characters = []
+        import random
+        for name in character_names:
+            character = {
+                "character_name": name,
+                "age_group": random.choice(AGE_GROUPS),
+                "gender": random.choice(GENDERS),
+                "hair": random.choice(HAIRS),
+                "face": random.choice(FACES),
+                "body_type": random.choice(BODY_TYPES),
+                "distinctive_features": random.choice(DISTINCTIVE_FEATURES)
+            }
+            characters.append(character)
+        
+        return {
+            "characters": characters,
+            "total_characters": len(characters)
+        }
+
+    def analyze_characters_with_postprocessing(self, scene_texts: List[str]) -> Dict[str, Any]:
+        """
+        등장인물 분석 후, 누락된 속성을 랜덤 예시값으로 채워 반환하는 메서드
+        """
+        try:
+            # 1. 기본 캐릭터 분석 수행
+            analysis_result = self.analyze_characters(scene_texts)
+
+            if "characters" not in analysis_result or not analysis_result["characters"]:
+                # 분석 결과가 없으면 캐릭터 이름만 추출 후 후처리
+                character_names = self._get_character_list(scene_texts)
+            else:
+                # 분석 결과에서 이름만 가져오기
+                character_names = [c.get("character_name", f"Character{i+1}") 
+                                for i, c in enumerate(analysis_result["characters"])]
+
+            # 2. 누락된 필드 랜덤 채우기
+            postprocessed_result = self._postprocess_character_info(character_names)
+
+            return postprocessed_result
+
+        except Exception as e:
+            print(f"Character analysis with postprocessing failed: {e}")
+            return {
+                "characters": [],
+                "total_characters": 0,
+                "error": str(e)
+            }
+        
     def analyze_costumes(self, scene_texts: List[str]) -> Dict[str, Any]:
             """의상 분석을 수행하는 메서드"""
             try:
@@ -530,6 +616,7 @@ class LlamaPromptMaker(PromptMakerInterface):
         return scene_char_list
  
     def _get_unique_characters(self, scene_char_list: List[Dict[str, Any]]) -> List[str]:
+
         """
         모든 씬의 등장인물을 하나로 합쳐 중복 없이 반환
         """
@@ -541,8 +628,84 @@ class LlamaPromptMaker(PromptMakerInterface):
         unique_chars = list(dict.fromkeys(all_chars))
         return unique_chars
     
+    def _make_character_descriptions_by_scene(
+            self,
+            character_profiles_by_scene: Dict[str, dict], 
+            costume_by_scene: Dict[str, dict]
+        ) -> Dict[str, List[str]]:
+        """
+        씬별로 캐릭터 프로필과 의상 정보를 합쳐 리스트 형태로 반환합니다.
+        
+        Returns:
+            Dict[str, List[str]]: 씬번호 -> ["캐릭터명 (필드1, 필드2, ..., 의상)", ...]
+        """
+        result = {}
+
+        for scene_number, scene_profiles in character_profiles_by_scene.items():
+            scene_costumes = costume_by_scene.get(scene_number, {})
+            char_list = []
+
+            for char_name, char_desc in scene_profiles.items():
+                # 의상 정보 가져오기 (소문자 키로 매칭)
+                outfit_desc = scene_costumes.get(char_name.lower(), "")
+
+                # 프로필 필드 순서대로 추출
+                profile_fields = [
+                    char_desc.get("age_group", "no information"),
+                    char_desc.get("gender", "no information"),
+                    char_desc.get("hair", "no information"),
+                    char_desc.get("face", "no information"),
+                    char_desc.get("body_type", "no information"),
+                    char_desc.get("distinctive_features", "no information")
+                ]
+
+                # 의상 정보 추가
+                if outfit_desc:
+                    profile_fields.append(outfit_desc)
+
+                # 최종 문자열
+                char_list.append(f"{char_name} ({', '.join(profile_fields)})")
+
+            result[scene_number] = char_list
+
+        return result
+    
+    def _postprocess_prompts_with_character_descriptions(self, scene_characters: dict, result: dict) -> dict:
+        """
+        프롬프트 후처리: 씬별 캐릭터 설명을 generated_prompt 앞에 추가
+
+        Args:
+            scene_characters (dict): {
+                "1": ["Yujin (...)", "Mom (...)"],
+                "2": ["Yujin (...)", "Mom (...)"],
+                ...
+            }
+            
+            result (dict): {
+                "prompts": [
+                    {"scene_number": "1", "generated_prompt": "some text"},
+                    {"scene_number": "2", "generated_prompt": "another text"}
+                ],
+                "total_prompts": 2
+            }
+
+        Returns:
+            dict: character description이 prepend된 result
+        """
+        if not (isinstance(result, dict) and "prompts" in result):
+            return result
+
+        for prompt in result["prompts"]:
+            scene_number = prompt.get("scene_number")
+            if scene_number in scene_characters:
+                char_desc = "; ".join(scene_characters[scene_number]) + "; "
+                prompt["generated_prompt"] = char_desc + prompt.get("generated_prompt", "")
+
+        return result
+
     def make_prompts(self, scene_texts: List[str]) -> List[Dict[str, Any]]:
         MAX_RETRIES = 3
+        PROMPTS_GENERATION_MAX_RETRIES = 10
         
         # 1. 등장인물 분석 (재시도 로직 포함)
         character_analysis = None
@@ -551,7 +714,7 @@ class LlamaPromptMaker(PromptMakerInterface):
         for attempt in range(MAX_RETRIES):
             try:
                 print(f"Character analysis attempt {attempt + 1}/{MAX_RETRIES}")
-                character_analysis = self.analyze_characters(scene_texts)
+                character_analysis = self.analyze_characters_with_postprocessing(scene_texts)
                 
                 # 타입 검증
                 if not isinstance(character_analysis, dict):
@@ -608,12 +771,12 @@ class LlamaPromptMaker(PromptMakerInterface):
                         "scene_costumes": [{"scene_number": str(i+1), "character_outfits": []} for i in range(len(scene_texts))],
                         "total_scenes": len(scene_texts)
                     }
-
+        
         # 3. 프롬프트 생성 (재시도 로직 포함)
         result = None
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(PROMPTS_GENERATION_MAX_RETRIES):
             try:
-                print(f"Prompt generation attempt {attempt + 1}/{MAX_RETRIES}")
+                print(f"Prompt generation attempt {attempt + 1}/{PROMPTS_GENERATION_MAX_RETRIES}")
                 
                 # 씬 데이터 준비
                 combined_scene_data = "\n\n".join(f"Scene {i+1}:\n{scene.strip()}" for i, scene in enumerate(scene_texts))
@@ -660,7 +823,7 @@ class LlamaPromptMaker(PromptMakerInterface):
                 
             except Exception as e:
                 print(f"Prompt generation attempt {attempt + 1} failed: {e}")
-                if attempt == MAX_RETRIES - 1:
+                if attempt == PROMPTS_GENERATION_MAX_RETRIES - 1:
                     print("Prompt generation failed after max retries, returning error responses")
                     return [self.get_error_response(str(e), idx) for idx in range(1, len(scene_texts) + 1)]
 
@@ -692,13 +855,14 @@ class LlamaPromptMaker(PromptMakerInterface):
         for attempt in range(MAX_RETRIES):
             try:
                 print(f"Character profiles building attempt {attempt + 1}/{MAX_RETRIES}")
-                print(scene_char_list)
-                print(character_analysis)
                 character_profiles_by_scene = self._build_character_profiles_by_scene(scene_char_list, character_analysis)
                 
                 # 타입 검증
                 if not isinstance(character_profiles_by_scene, dict):
                     raise TypeError(f"Character profiles by scene returned {type(character_profiles_by_scene)}, expected dict")
+                
+                if len(scene_char_list) != len(scene_texts):
+                    raise ValueError(f"Character list count mismatch: {len(scene_char_list)} != {len(scene_texts)}")
                 
                 print(f"Character profiles building successful: processed {len(character_profiles_by_scene)} scenes")
                 break
@@ -729,20 +893,46 @@ class LlamaPromptMaker(PromptMakerInterface):
                     print("Costume by scene building failed after max retries, using empty dict")
                     costume_by_scene = {}
 
-        # 7. 캐릭터 묘사 추가 (재시도 로직 포함)
+        # 7. 캐릭터 묘사, 의상 묘사 합치기 (재시도 로직 포함)
         for attempt in range(MAX_RETRIES):
             try:
-                print(f"Character descriptions prepending attempt {attempt + 1}/{MAX_RETRIES}")
-                self._prepend_character_descriptions(result, character_profiles_by_scene, costume_by_scene)
-                print("Character descriptions prepending successful")
+                print(f"Character descriptions attempt {attempt + 1}/{MAX_RETRIES}")
+                character_descriptions = self._make_character_descriptions_by_scene(character_profiles_by_scene, costume_by_scene)
+
+                if not isinstance(character_descriptions, dict):
+                    raise TypeError(f"character descriptions returned {type(character_descriptions)}, expected dict")
+                
+                if len(character_descriptions) != len(scene_texts):
+                    raise ValueError(f"character descriptions count mismatch: {len(character_descriptions)} != {len(scene_texts)}")
+                
+                print("Character descriptions successful")
                 break
                 
             except Exception as e:
-                print(f"Character descriptions prepending attempt {attempt + 1} failed: {e}")
+                print(f"Character descriptions attempt {attempt + 1} failed: {e}")
                 if attempt == MAX_RETRIES - 1:
-                    print("Character descriptions prepending failed after max retries, continuing without character descriptions")
+                    print("Character descriptions failed after max retries, continuing without character descriptions")
 
-        # 8. 그림체 스타일 추가 (재시도 로직 포함)
+        # 8. 캐릭터 설명 프롬프트 추가 (재시도 로직 포함)
+        for attempt in range(MAX_RETRIES):
+            try:
+                print(f"Character descriptions postprocessing attempt {attempt + 1}/{MAX_RETRIES}")
+                prompts_added_character_descriptions=self._postprocess_prompts_with_character_descriptions(character_descriptions, result)
+                print("Character descriptions postprocessing successful")
+                
+                if not isinstance(prompts_added_character_descriptions, dict):
+                    raise TypeError(f"prompts_added_character_descriptions returned {type(prompts_added_character_descriptions)}, expected dict")
+                
+                if len(prompts_added_character_descriptions['prompts']) != len(scene_texts):
+                    raise ValueError(f"prompts_added_character_descriptions count mismatch: {len(prompts_added_character_descriptions['prompts'])} != {len(scene_texts)}")
+                break
+                
+            except Exception as e:
+                print(f"prompts_added_character_descriptions attempt {attempt + 1} failed: {e}")
+                if attempt == MAX_RETRIES - 1:
+                    print("prompts_added_character_descriptions failed after max retries, continuing without character descriptions")
+
+        # 9. 그림체 스타일 추가 (재시도 로직 포함)
         styled_prompts = None
         for attempt in range(MAX_RETRIES):
             try:
