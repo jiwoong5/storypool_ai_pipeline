@@ -33,17 +33,15 @@ class LlamaSceneParser(SceneParserInterface):
             dict: 구조화된 장면 분석 결과 (JSON serializable)
         """
         try:
-            print("# 1단계: 기본 장면 파싱 (location 제외)")
             # 1단계: 기본 장면 파싱 (location 제외)
             basic_scenes_data = self._parse_basic_scenes_with_correction(text_content)
-            print("# 2단계: 장면별 location 추론")
+
             # 2단계: 장면별 location 추론
             locations = self._infer_locations(basic_scenes_data)
-            print("# 3단계: location을 기본 장면 데이터에 추가")
+
             # 3단계: location을 기본 장면 데이터에 추가
             enhanced_scenes_data = self._merge_locations(basic_scenes_data, locations)
             
-            print("# 4단계: Dictionary로 반환")
             # 4단계: Dictionary로 반환
             return enhanced_scenes_data
             

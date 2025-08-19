@@ -16,18 +16,12 @@ class PromptMakerManager:
         except json.JSONDecodeError as e:
             raise ValueError(f"JSON 파일 파싱 오류: {e}")
 
-    def extract_scene_info(self, scene: Dict[str, Any]) -> str:
-        formatted = f"""
-        - Scene Number: {scene.get('scene_number')}
-        - Scene Title: {scene.get('scene_title')}
-        - Characters: {', '.join(scene.get('characters', []))}
-        - Location: {scene.get('location')}
-        - Time: {scene.get('time') or 'None'}
-        - Mood: {scene.get('mood')}
-        - Summary: {scene.get('summary')}
-        - Dialogue Count: {scene.get('dialogue_count')}
-        """.strip()
-        return formatted
+    def extract_scene_info(self, scene: Dict[str, Any]):
+        """
+        Scene dict를 받아서 JSON 호환 dict로 반환
+        """
+        return json.dumps(scene)
+
     
     def save_prompts_json(self, results: List[Dict[str, Any]], filename: str):
         """생성된 프롬프트들을 JSON 파일로 저장합니다."""

@@ -92,7 +92,6 @@ class StoryProcessor:
                 scene_str = json.dumps(scenes_data, ensure_ascii=False, indent=2)
             else:
                 scene_str = str(scenes_data)
-
             # prompt 생성
             prompt_result = self.prompt_maker.process(scene_str)
 
