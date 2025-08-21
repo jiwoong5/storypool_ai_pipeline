@@ -1,5 +1,6 @@
 from image_maker.dream_shaper_image_maker import DreamShaperImageMaker
 from image_maker.ghibli_diffusion_image_maker import GhibliDiffusionImageMaker
+from image_maker.sdxl_image_maker import SDXLImageMaker
 from image_maker.image_maker_interface import ImageMakerInterface
 
 class ImageMakerSelector:
@@ -9,5 +10,7 @@ class ImageMakerSelector:
             return GhibliDiffusionImageMaker()
         if model_name == "dream_shaper":
             return DreamShaperImageMaker()
+        if model_name == "sdxl":
+            return SDXLImageMaker()
         else:
             raise ValueError(f"지원하지 않는 이미지 생성기: {model_name}")

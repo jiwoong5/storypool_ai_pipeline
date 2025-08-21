@@ -12,7 +12,7 @@ def generate_images_from_prompts(prompt_file_path: str, output_dir: str):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # ImageMaker 준비
-    image_maker = ImageMakerSelector.get_image_maker('dream_shaper')
+    image_maker = ImageMakerSelector.get_image_maker('sdxl')
     manager = ImageMakerManager(image_maker)
     
     for idx, prompt in enumerate(prompts, start=1):

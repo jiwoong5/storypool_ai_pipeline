@@ -296,7 +296,7 @@ def upload_image_to_s3(image_bytes: bytes, s3_key: str) -> str:
         Fileobj=file_obj,
         Bucket=AWS_BUCKET,
         Key=s3_key,
-        ExtraArgs={"ContentType": "image/png", "ACL": "public-read"}  # 퍼블릭 읽기 권한
+        ExtraArgs={"ContentType": "image/png"}
     )
 
     # 그냥 URL 생성 (리전 필요)
