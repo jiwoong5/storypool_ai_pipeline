@@ -1,5 +1,8 @@
 # StoryPool AI Pipeline 📚✨
 
+<p align="center">
+  <img src="gifs/시연영상.gif" width="600"/>
+</p>
 > 사용자의 일기를 바탕으로 개인화된 그림동화를 자동 생성하는 AI 파이프라인
 
 ## 🎯 프로젝트 개요
