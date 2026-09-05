@@ -1,5 +1,7 @@
 # StoryPool AI Pipeline 📚✨
-
+<p align="center">
+  <img src="gifs/졸업과제포스터.png" width="600"/>
+</p>
 <p align="center">
   <img src="gifs/시연영상.gif" width="600"/>
 </p>
