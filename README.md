@@ -2,8 +2,13 @@
 <p align="center">
   <img src="gifs/졸업과제포스터.png" width="600"/>
 </p>
+
 <p align="center">
-  <img src="gifs/시연영상.gif" width="600"/>
+  <a href="gifs/시연영상.gif">
+    <img src="gifs/썸네일.png" width="600"/>
+  </a>
+  <br/>
+  <sub>이미지를 클릭하면 시연 영상(GIF)이 재생됩니다</sub>
 </p>
 > 사용자의 일기를 바탕으로 개인화된 그림동화를 자동 생성하는 AI 파이프라인
 
